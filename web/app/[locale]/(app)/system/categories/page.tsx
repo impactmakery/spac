@@ -1,7 +1,8 @@
-import { getTranslations } from "next-intl/server";
-import { ComingSoon } from "@/components/coming-soon";
+import { apiFetch } from "@/lib/api";
+import type { CategoryRow } from "@/lib/admin-types";
+import { CategoriesClient } from "./categories-client";
 
-export default async function Page() {
-  const t = await getTranslations("nav");
-  return <ComingSoon title={t("systemCategories")} />;
+export default async function CategoriesPage() {
+  const rows = await apiFetch<CategoryRow[]>("/api/categories");
+  return <CategoriesClient rows={rows} />;
 }

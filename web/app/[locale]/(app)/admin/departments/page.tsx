@@ -1,7 +1,11 @@
-import { getTranslations } from "next-intl/server";
-import { ComingSoon } from "@/components/coming-soon";
+import { apiFetch } from "@/lib/api";
+import type { DepartmentRow } from "@/lib/admin-types";
+import { DepartmentsClient } from "./departments-client";
 
-export default async function Page() {
-  const t = await getTranslations("nav");
-  return <ComingSoon title={t("adminDepartments")} />;
+export default async function DepartmentsPage() {
+  const [active, archived] = await Promise.all([
+    apiFetch<DepartmentRow[]>("/api/departments?status=active"),
+    apiFetch<DepartmentRow[]>("/api/departments?status=archived"),
+  ]);
+  return <DepartmentsClient active={active} archived={archived} />;
 }

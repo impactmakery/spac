@@ -1,7 +1,13 @@
-import { getTranslations } from "next-intl/server";
-import { ComingSoon } from "@/components/coming-soon";
+import { UsersTable } from "@/components/users-table";
+import { apiFetch } from "@/lib/api";
+import type { AdminUserRow, MunicipalityRow } from "@/lib/admin-types";
 
-export default async function Page() {
-  const t = await getTranslations("nav");
-  return <ComingSoon title={t("systemUsers")} />;
+export default async function SystemUsersPage() {
+  const [rows, municipalities] = await Promise.all([
+    apiFetch<AdminUserRow[]>("/api/admin/users"),
+    apiFetch<MunicipalityRow[]>("/api/municipalities"),
+  ]);
+  return (
+    <UsersTable scope="system" rows={rows} departments={[]} municipalities={municipalities} />
+  );
 }

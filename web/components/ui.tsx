@@ -67,3 +67,36 @@ export function Card({ className, ...props }: ComponentProps<"div">) {
     />
   );
 }
+
+export function Badge({
+  className,
+  tone = "muted",
+  ...props
+}: ComponentProps<"span"> & { tone?: "muted" | "accent" | "destructive" | "primary" }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+        tone === "muted" && "bg-muted text-muted-foreground",
+        tone === "accent" && "bg-accent text-accent-foreground",
+        tone === "destructive" && "bg-destructive/10 text-destructive",
+        tone === "primary" && "bg-primary text-primary-foreground",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function Select({ className, ...props }: ComponentProps<"select">) {
+  return (
+    <select
+      className={cn(
+        "rounded-lg border border-input bg-card px-3 py-2 text-sm",
+        "focus-visible:outline-2 focus-visible:outline-ring",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
