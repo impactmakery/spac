@@ -1,8 +1,12 @@
 from app.models.base import (
+    EMBEDDING_DIM,
     AuditLog,
     Category,
+    Chunk,
     Department,
+    IngestionJob,
     Invitation,
+    KbDocument,
     Municipality,
     PasswordResetToken,
     User,
@@ -10,10 +14,14 @@ from app.models.base import (
 )
 
 __all__ = [
+    "EMBEDDING_DIM",
     "AuditLog",
     "Category",
+    "Chunk",
     "Department",
+    "IngestionJob",
     "Invitation",
+    "KbDocument",
     "Municipality",
     "PasswordResetToken",
     "User",

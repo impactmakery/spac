@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     email_from: str = ""
     cron_secret: str = ""
     outbox_dir: str = "var/outbox"
+    files_dir: str = "var/files"
 
 
 @lru_cache
