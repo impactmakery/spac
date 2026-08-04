@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     resend_api_key: str = ""
     email_from: str = ""
     cron_secret: str = ""
+    outbox_dir: str = "var/outbox"
 
 
 @lru_cache
