@@ -28,3 +28,10 @@ declare module "next-auth/jwt" {
     apiToken: string;
   }
 }
+
+declare module "@auth/core/jwt" {
+  interface JWT {
+    user: AppUser;
+    apiToken: string;
+  }
+}
