@@ -44,3 +44,11 @@ def test_active_department_name_unique_per_municipality(db):
     db.add(Department(municipality=muni, name="welfare"))
     with pytest.raises(IntegrityError):
         db.commit()
+
+
+def test_categories_table(engine, db):
+    from app.models import Category
+
+    db.add(Category(name_he="כלים", name_en="Tools"))
+    db.commit()
+    assert db.query(Category).one().name_en == "Tools"

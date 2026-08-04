@@ -70,6 +70,8 @@ def get_current_user(
     user = db.get(User, uuid.UUID(claims["sub"]))
     if user is None or user.status != "active" or user.token_version != claims["tv"]:
         raise HTTPException(status_code=401, detail="session_expired")
+    if user.municipality is not None and user.municipality.status != "active":
+        raise HTTPException(status_code=401, detail="session_expired")
     return user
 
 

@@ -1,5 +1,6 @@
 from app.models.base import (
     AuditLog,
+    Category,
     Department,
     Invitation,
     Municipality,
@@ -10,6 +11,7 @@ from app.models.base import (
 
 __all__ = [
     "AuditLog",
+    "Category",
     "Department",
     "Invitation",
     "Municipality",

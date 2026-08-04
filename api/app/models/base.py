@@ -138,6 +138,19 @@ class PasswordResetToken(Base):
     )
 
 
+class Category(Base):
+    """Global board categories, named bilingually. Removal only via merge-into."""
+
+    __tablename__ = "categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name_he: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name_en: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AuditLog(Base):
     """Append-only. No code path may UPDATE or DELETE rows in this table."""
 

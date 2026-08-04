@@ -63,6 +63,8 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> Log
         body.password, user.password_hash
     ):
         raise HTTPException(status_code=401, detail="invalid_credentials")
+    if user.municipality is not None and user.municipality.status != "active":
+        raise HTTPException(status_code=401, detail="invalid_credentials")
     user.last_login_at = datetime.now(UTC)
     db.commit()
     return LoginOut(access_token=create_access_token(user), user=user_out(user))

@@ -13,6 +13,16 @@ from sqlalchemy.orm import Session, sessionmaker
 TEMPLATE = "tah_test_template"
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Module-level limiters share state across tests (same 'testclient' IP)."""
+    from app.core.ratelimit import forgot_limiter, login_limiter
+
+    login_limiter.reset("testclient")
+    forgot_limiter.reset("testclient")
+    yield
+
+
 @pytest.fixture(scope="session")
 def pg_uri() -> str:
     """Plain postgres URI to the server's maintenance DB (no +psycopg)."""
