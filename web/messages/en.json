@@ -1,0 +1,98 @@
+{
+  "common": {
+    "appName": "Tomorrow Agent",
+    "programName": "Tomorrow Program",
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "back": "Back",
+    "error": "Something went wrong. Please try again.",
+    "comingSoon": "Coming soon",
+    "comingSoonBody": "This screen will be available in the next stage of development."
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "subtitle": "The Tomorrow Program knowledge & assistant platform",
+      "email": "Email",
+      "password": "Password",
+      "submit": "Sign in",
+      "forgot": "Forgot password",
+      "invalidCredentials": "Incorrect email or password",
+      "tooManyAttempts": "Too many attempts. Try again in a few minutes.",
+      "error": "Sign-in failed. Please try again."
+    },
+    "forgot": {
+      "title": "Reset password",
+      "subtitle": "We will send you a password reset link",
+      "email": "Email",
+      "submit": "Send link",
+      "sent": "If an account exists for this address, a reset link is on its way.",
+      "backToLogin": "Back to sign in"
+    },
+    "reset": {
+      "title": "Choose a new password",
+      "password": "New password",
+      "passwordAgain": "Confirm password",
+      "submit": "Save password",
+      "mismatch": "Passwords do not match",
+      "tooShort": "Password must be at least 10 characters",
+      "invalidToken": "This link is invalid or expired. You can request a new one.",
+      "success": "Password updated. You can sign in.",
+      "requestNew": "Request a new link"
+    },
+    "acceptInvite": {
+      "title": "Join Tomorrow Agent",
+      "invitedBy": "Invited by {name}",
+      "municipality": "Municipality: {name}",
+      "departments": "Departments: {names}",
+      "name": "Full name",
+      "password": "Password (at least 10 characters)",
+      "passwordAgain": "Confirm password",
+      "language": "Interface language",
+      "hebrew": "עברית",
+      "english": "English",
+      "submit": "Join",
+      "expired": "This invitation is invalid or expired.",
+      "expiredHelp": "Contact the admin who invited you and ask for a new invitation."
+    }
+  },
+  "nav": {
+    "chat": "Tomorrow Agent",
+    "knowledge": "Knowledge Base",
+    "board": "Shared Board",
+    "municipality": "My Municipality",
+    "profile": "Profile",
+    "adminUsers": "Users",
+    "adminDepartments": "Departments",
+    "adminStats": "Usage",
+    "systemMunicipalities": "Municipalities",
+    "systemKnowledge": "Knowledge Base Admin",
+    "systemCategories": "Categories",
+    "systemUsers": "All Users",
+    "systemStats": "Usage",
+    "signOut": "Sign out",
+    "openMenu": "Open menu"
+  },
+  "profile": {
+    "title": "Profile",
+    "name": "Full name",
+    "email": "Email",
+    "municipality": "Municipality",
+    "departments": "Departments",
+    "language": "Interface language",
+    "digest": "Weekly email digest",
+    "digestHelp": "One email a week with new items on your boards",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "newPasswordAgain": "Confirm new password",
+    "passwordChanged": "Password changed",
+    "wrongPassword": "Current password is incorrect",
+    "saved": "Saved"
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "common": {
+    "appName": "סוכן מחר",
+    "programName": "תכנית מחר",
+    "loading": "טוען...",
+    "save": "שמירה",
+    "cancel": "ביטול",
+    "close": "סגירה",
+    "delete": "מחיקה",
+    "edit": "עריכה",
+    "search": "חיפוש",
+    "back": "חזרה",
+    "error": "משהו השתבש. נסו שוב.",
+    "comingSoon": "בקרוב",
+    "comingSoonBody": "המסך הזה יהיה זמין בשלב הבא של הפיתוח."
+  },
+  "auth": {
+    "login": {
+      "title": "התחברות",
+      "subtitle": "פלטפורמת הידע והסיוע של תכנית מחר",
+      "email": "אימייל",
+      "password": "סיסמה",
+      "submit": "התחברות",
+      "forgot": "שכחתי סיסמה",
+      "invalidCredentials": "האימייל או הסיסמה שגויים",
+      "tooManyAttempts": "יותר מדי ניסיונות. נסו שוב בעוד כמה דקות.",
+      "error": "ההתחברות נכשלה. נסו שוב."
+    },
+    "forgot": {
+      "title": "איפוס סיסמה",
+      "subtitle": "נשלח לך קישור לאיפוס הסיסמה",
+      "email": "אימייל",
+      "submit": "שליחת קישור",
+      "sent": "אם קיים חשבון עם הכתובת הזו, נשלח אליו קישור לאיפוס הסיסמה.",
+      "backToLogin": "חזרה להתחברות"
+    },
+    "reset": {
+      "title": "בחירת סיסמה חדשה",
+      "password": "סיסמה חדשה",
+      "passwordAgain": "אימות סיסמה",
+      "submit": "שמירת הסיסמה",
+      "mismatch": "הסיסמאות אינן זהות",
+      "tooShort": "הסיסמה חייבת להכיל לפחות 10 תווים",
+      "invalidToken": "הקישור אינו תקף או שפג תוקפו. אפשר לבקש קישור חדש.",
+      "success": "הסיסמה עודכנה. אפשר להתחבר.",
+      "requestNew": "בקשת קישור חדש"
+    },
+    "acceptInvite": {
+      "title": "הצטרפות לסוכן מחר",
+      "invitedBy": "הוזמנת על ידי {name}",
+      "municipality": "רשות: {name}",
+      "departments": "מחלקות: {names}",
+      "name": "שם מלא",
+      "password": "סיסמה (10 תווים לפחות)",
+      "passwordAgain": "אימות סיסמה",
+      "language": "שפת ממשק",
+      "hebrew": "עברית",
+      "english": "English",
+      "submit": "הצטרפות",
+      "expired": "ההזמנה אינה תקפה או שפג תוקפה.",
+      "expiredHelp": "אפשר לפנות למנהל שהזמין אותך ולבקש הזמנה חדשה."
+    }
+  },
+  "nav": {
+    "chat": "סוכן מחר",
+    "knowledge": "בסיס מחר",
+    "board": "לוח שיתוף",
+    "municipality": "הרשות שלי",
+    "profile": "הגדרות אישיות",
+    "adminUsers": "ניהול משתמשים",
+    "adminDepartments": "ניהול מחלקות",
+    "adminStats": "מדדי שימוש",
+    "systemMunicipalities": "ניהול רשויות",
+    "systemKnowledge": "ניהול בסיס מחר",
+    "systemCategories": "ניהול קטגוריות",
+    "systemUsers": "כל המשתמשים",
+    "systemStats": "מדדי שימוש",
+    "signOut": "התנתקות",
+    "openMenu": "פתיחת תפריט"
+  },
+  "profile": {
+    "title": "הגדרות אישיות",
+    "name": "שם מלא",
+    "email": "אימייל",
+    "municipality": "רשות",
+    "departments": "מחלקות",
+    "language": "שפת ממשק",
+    "digest": "סיכום שבועי במייל",
+    "digestHelp": "מייל אחד בשבוע עם פריטים חדשים בלוחות שלך",
+    "changePassword": "החלפת סיסמה",
+    "currentPassword": "סיסמה נוכחית",
+    "newPassword": "סיסמה חדשה",
+    "newPasswordAgain": "אימות סיסמה חדשה",
+    "passwordChanged": "הסיסמה הוחלפה",
+    "wrongPassword": "הסיסמה הנוכחית שגויה",
+    "saved": "נשמר"
+  }
+}
