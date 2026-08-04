@@ -4,12 +4,14 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.routers import auth as auth_router
+from app.routers import invitations as invitations_router
 from app.routers import users as users_router
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Tomorrow Agent Hub API")
     app.include_router(auth_router.router)
+    app.include_router(invitations_router.router)
     app.include_router(users_router.router)
 
     @app.get("/health")

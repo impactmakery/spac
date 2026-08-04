@@ -21,7 +21,8 @@ _RESET = {
         "subject": "Password reset — Tomorrow Agent Hub",
         "body": (
             "<p>Hello {name},</p>"
-            "<p>A password reset was requested for your account. The link is valid for one hour:</p>"
+            "<p>A password reset was requested for your account. "
+            "The link is valid for one hour:</p>"
             '<p><a href="{link}">Reset your password</a></p>'
             "<p>If you did not request this, you can ignore this message.</p>"
         ),
