@@ -22,6 +22,20 @@ def me(user: User = Depends(get_current_user)) -> UserOut:
     return user_out(user)
 
 
+class DepartmentRef(BaseModel):
+    id: str
+    name: str
+
+
+@router.get("/me/departments", response_model=list[DepartmentRef])
+def my_departments(user: User = Depends(get_current_user)) -> list[DepartmentRef]:
+    return [
+        DepartmentRef(id=str(d.id), name=d.name)
+        for d in user.departments
+        if d.status == "active"
+    ]
+
+
 @router.patch("/me", response_model=UserOut)
 def patch_me(
     body: MePatch,

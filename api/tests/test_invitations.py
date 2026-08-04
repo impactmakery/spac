@@ -172,3 +172,20 @@ def test_resend_scope_enforced_404(client, world):
     inv_id = r.json()["id"]
     headers2 = auth(client, "admin2@x.org")
     assert client.post(f"/api/invitations/{inv_id}/resend", headers=headers2).status_code == 404
+
+
+def test_me_departments(client, db, world):
+    from app.core.security import hash_password
+    from app.models import User
+
+    u = User(
+        email="deptuser@x.org", role="department_user", municipality=world["m1"],
+        status="active", password_hash=hash_password("plain-password-1"),
+        departments=[world["d1"]],
+    )
+    db.add(u)
+    db.commit()
+    headers = auth(client, "deptuser@x.org", "plain-password-1")
+    r = client.get("/api/users/me/departments", headers=headers)
+    assert r.status_code == 200
+    assert r.json() == [{"id": str(world["d1"].id), "name": "Welfare"}]

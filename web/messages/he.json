@@ -61,6 +61,11 @@
       "expiredHelp": "אפשר לפנות למנהל שהזמין אותך ולבקש הזמנה חדשה."
     }
   },
+  "roles": {
+    "system_admin": "מנהל מערכת",
+    "municipality_admin": "מנהל רשות",
+    "department_user": "משתמש מחלקה"
+  },
   "nav": {
     "chat": "סוכן מחר",
     "knowledge": "בסיס מחר",

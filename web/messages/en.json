@@ -61,6 +61,11 @@
       "expiredHelp": "Contact the admin who invited you and ask for a new invitation."
     }
   },
+  "roles": {
+    "system_admin": "System Admin",
+    "municipality_admin": "Municipality Admin",
+    "department_user": "Department User"
+  },
   "nav": {
     "chat": "Tomorrow Agent",
     "knowledge": "Knowledge Base",
