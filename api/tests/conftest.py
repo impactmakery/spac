@@ -29,8 +29,9 @@ def pg_uri() -> str:
 
 @pytest.fixture(scope="session")
 def template_db(pg_uri: str) -> str:
-    from alembic import command
     from alembic.config import Config
+
+    from alembic import command
 
     with psycopg.connect(pg_uri, autocommit=True) as conn:
         conn.execute(f'DROP DATABASE IF EXISTS "{TEMPLATE}" WITH (FORCE)')
