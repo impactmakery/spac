@@ -14,6 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 24, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
+      # PageProps/LayoutProps are globals Next generates into .next/types,
+      # which is gitignored — typegen must run before typechecking.
+      - run: npx next typegen
       - run: npx tsc --noEmit
       - run: npm run lint
       - run: npm test
