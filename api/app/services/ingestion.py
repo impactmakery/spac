@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
-from app.models import Chunk, IngestionJob, KbDocument
+from app.models import BoardItem, Chunk, DepartmentFile, IngestionJob, KbDocument
 from app.rag.chunking import chunk_text
 from app.rag.embeddings import get_embedding_provider
 from app.rag.extract import extract_text
@@ -30,18 +30,24 @@ def enqueue(
     source_type: str,
     source_id: uuid.UUID,
     visibility: str,
-    storage_key: str,
-    ext: str,
+    storage_key: str | None = None,
+    ext: str | None = None,
+    text_content: str | None = None,
     municipality_id: uuid.UUID | None = None,
     department_id: uuid.UUID | None = None,
 ) -> IngestionJob:
-    """Queue (re)indexing of a source. Caller owns the transaction."""
+    """Queue (re)indexing of a source. Caller owns the transaction.
+
+    Pass storage_key+ext for files, or text_content for text-only sources
+    (board descriptions of link items, department posts).
+    """
     job = IngestionJob(
         source_type=source_type,
         source_id=source_id,
         payload={
             "storage_key": storage_key,
             "ext": ext,
+            "text": text_content,
             "visibility": visibility,
             "municipality_id": str(municipality_id) if municipality_id else None,
             "department_id": str(department_id) if department_id else None,
@@ -59,13 +65,27 @@ def _set_source_status(
         if doc is not None:
             doc.status = status
             doc.error = error
-    # board / department sources get their status hooks in Stage E
+    elif source_type == "board":
+        item = db.get(BoardItem, source_id)
+        if item is not None:
+            item.indexing_status = status
+    elif source_type == "department":
+        # only files carry a status; posts share the source_type but no row here
+        file = db.get(DepartmentFile, source_id)
+        if file is not None:
+            file.status = status
+            file.error = error
 
 
 def _process(db: Session, job: IngestionJob) -> None:
     payload = job.payload
-    content = get_storage().open(payload["storage_key"])
-    txt = extract_text(content, payload["ext"])
+    if payload.get("storage_key"):
+        content = get_storage().open(payload["storage_key"])
+        txt = extract_text(content, payload["ext"])
+        if payload.get("text"):
+            txt = payload["text"] + "\n\n" + txt
+    else:
+        txt = payload.get("text") or ""
     chunks = chunk_text(txt)
     embeddings = get_embedding_provider().embed(chunks) if chunks else []
 
@@ -94,7 +114,12 @@ def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
     """Claim and run due jobs. Returns the number processed."""
     claimed = db.scalars(
         select(IngestionJob)
-        .where(IngestionJob.status == "queued", IngestionJob.run_after <= text("now()"))
+        .where(
+            IngestionJob.status == "queued",
+            # clock_timestamp(), not now(): now() is the transaction start time, so a
+            # session that began before a job was enqueued would never claim it.
+            IngestionJob.run_after <= text("clock_timestamp()"),
+        )
         .order_by(IngestionJob.id)
         .limit(limit)
         .with_for_update(skip_locked=True)

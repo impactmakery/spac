@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.routers import admin_users as admin_users_router
 from app.routers import auth as auth_router
+from app.routers import board_items as board_items_router
 from app.routers import categories as categories_router
+from app.routers import department_content as department_content_router
 from app.routers import departments as departments_router
 from app.routers import files as files_router
 from app.routers import invitations as invitations_router
@@ -18,7 +20,9 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Tomorrow Agent Hub API")
     app.include_router(admin_users_router.router)
     app.include_router(auth_router.router)
+    app.include_router(board_items_router.router)
     app.include_router(categories_router.router)
+    app.include_router(department_content_router.router)
     app.include_router(departments_router.router)
     app.include_router(files_router.router)
     app.include_router(invitations_router.router)
