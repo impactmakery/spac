@@ -70,6 +70,16 @@ class Settings(BaseSettings):
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     r2_bucket: str = ""
+    # Buckets created with a jurisdiction ("eu", "fedramp") must be reached
+    # through that jurisdiction's endpoint; plain buckets use the default host.
+    r2_jurisdiction: str = ""
+
+    @property
+    def r2_endpoint_url(self) -> str:
+        host = f"{self.r2_account_id}.r2.cloudflarestorage.com"
+        if self.r2_jurisdiction:
+            host = f"{self.r2_account_id}.{self.r2_jurisdiction}.r2.cloudflarestorage.com"
+        return f"https://{host}"
     resend_api_key: str = ""
     email_from: str = ""
     cron_secret: str = ""

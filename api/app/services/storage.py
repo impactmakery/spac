@@ -73,7 +73,7 @@ class R2Provider:
         s = get_settings()
         return boto3.client(
             "s3",
-            endpoint_url=f"https://{s.r2_account_id}.r2.cloudflarestorage.com",
+            endpoint_url=s.r2_endpoint_url,
             aws_access_key_id=s.r2_access_key_id,
             aws_secret_access_key=s.r2_secret_access_key,
             region_name="auto",

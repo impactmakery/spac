@@ -52,3 +52,17 @@ def test_provider_selection_local_when_no_r2():
     from app.services.storage import LocalDiskProvider, get_storage
 
     assert isinstance(get_storage(), LocalDiskProvider)
+
+
+def test_r2_endpoint_follows_jurisdiction(monkeypatch):
+    """Jurisdictional buckets are only reachable on their own endpoint."""
+    from app.core.config import get_settings
+
+    s = get_settings()
+    monkeypatch.setattr(s, "r2_account_id", "acct123")
+
+    monkeypatch.setattr(s, "r2_jurisdiction", "")
+    assert s.r2_endpoint_url == "https://acct123.r2.cloudflarestorage.com"
+
+    monkeypatch.setattr(s, "r2_jurisdiction", "eu")
+    assert s.r2_endpoint_url == "https://acct123.eu.r2.cloudflarestorage.com"
