@@ -8,8 +8,11 @@ jobs:
     defaults: { run: { working-directory: web } }
     steps:
       - uses: actions/checkout@v4
+      # Node 24 ships npm 11, which is what the lockfile was resolved with.
+      # On npm 10 the optional @swc/helpers peer of next-intl's @swc/core
+      # resolves differently and `npm ci` rejects the lockfile.
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+        with: { node-version: 24, cache: npm, cache-dependency-path: web/package-lock.json }
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
