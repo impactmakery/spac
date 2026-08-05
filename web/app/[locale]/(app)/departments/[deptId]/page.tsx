@@ -1,19 +1,33 @@
-import { getTranslations } from "next-intl/server";
-import { ComingSoon } from "@/components/coming-soon";
-import { apiFetch } from "@/lib/api";
-import type { DepartmentRef } from "@/lib/nav";
+import { notFound } from "next/navigation";
+import { ApiError, apiFetch } from "@/lib/api";
+import type { DeptFile, DeptPost } from "@/lib/board-types";
+import { DepartmentClient } from "./department-client";
 
 export default async function DepartmentPage({
   params,
 }: PageProps<"/[locale]/departments/[deptId]">) {
   const { deptId } = await params;
-  const t = await getTranslations("nav");
-  let title = t("municipality");
+  let info: { id: string; name: string };
   try {
-    const departments = await apiFetch<DepartmentRef[]>("/api/users/me/departments");
-    title = departments.find((d) => d.id === deptId)?.name ?? title;
-  } catch {
-    // placeholder page — full department area arrives in Stage E
+    info = await apiFetch<{ id: string; name: string }>(
+      `/api/departments/${deptId}/info`,
+    );
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) notFound();
+    throw e;
   }
-  return <ComingSoon title={title} />;
+  const [files, posts] = await Promise.all([
+    apiFetch<DeptFile[]>(`/api/departments/${deptId}/files`),
+    apiFetch<DeptPost[]>(`/api/departments/${deptId}/posts`),
+  ]);
+
+  return (
+    <DepartmentClient
+      deptId={deptId}
+      deptName={info.name}
+      files={files}
+      posts={posts}
+      apiBase={process.env.API_BASE_URL ?? ""}
+    />
+  );
 }
