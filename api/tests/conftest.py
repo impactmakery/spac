@@ -10,7 +10,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-TEMPLATE = "tah_test_template"
+# Per-session template name: two pytest sessions sharing one server would
+# otherwise drop and recreate each other's template mid-run, failing random
+# tests with confusing psycopg errors.
+TEMPLATE = f"tah_test_template_{os.getpid()}"
 
 
 @pytest.fixture(autouse=True)
@@ -38,7 +41,7 @@ def pg_uri() -> str:
 
 
 @pytest.fixture(scope="session")
-def template_db(pg_uri: str) -> str:
+def template_db(pg_uri: str) -> Iterator[str]:
     from alembic.config import Config
 
     from alembic import command
@@ -54,7 +57,10 @@ def template_db(pg_uri: str) -> str:
         "sqlalchemy.url", tmpl_uri.replace("postgresql://", "postgresql+psycopg://")
     )
     command.upgrade(cfg, "head")
-    return tmpl_uri
+    yield tmpl_uri
+
+    with psycopg.connect(pg_uri, autocommit=True) as conn:
+        conn.execute(f'DROP DATABASE IF EXISTS "{TEMPLATE}" WITH (FORCE)')
 
 
 @pytest.fixture()
@@ -94,3 +100,4 @@ def client(engine: Engine) -> Iterator[TestClient]:
     app.dependency_overrides[get_db] = override
     with TestClient(app) as c:
         yield c
+
