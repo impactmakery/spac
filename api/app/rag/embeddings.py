@@ -20,12 +20,21 @@ class EmbeddingProvider(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
 
 
-class OpenAIEmbeddings:
+class ApiEmbeddings:
+    """Any OpenAI-compatible embeddings endpoint, batched per the spec.
+
+    Always requests EMBEDDING_DIM dimensions so vectors match the `chunks`
+    column; changing the model means re-embedding (scripts/reembed.py).
+    """
+
     def embed(self, texts: list[str]) -> list[list[float]]:
         from openai import OpenAI
 
         settings = get_settings()
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(
+            api_key=settings.resolved_embedding_key,
+            base_url=settings.resolved_embedding_base_url,
+        )
         out: list[list[float]] = []
         for i in range(0, len(texts), BATCH_SIZE):
             batch = texts[i : i + BATCH_SIZE]
@@ -92,6 +101,6 @@ class FakeEmbeddings:
 
 
 def get_embedding_provider() -> EmbeddingProvider:
-    if get_settings().openai_api_key:
-        return OpenAIEmbeddings()
+    if get_settings().resolved_embedding_key:
+        return ApiEmbeddings()
     return FakeEmbeddings()

@@ -5,12 +5,15 @@ retrieved passages with the same citation markers, so the whole chat flow —
 streaming, citations, unanswered handling — runs offline and in tests.
 """
 
+import logging
 import re
 from collections.abc import Iterator
 from typing import Protocol
 
 from app.core.config import get_settings
 from app.rag.retrieval import RetrievedChunk
+
+log = logging.getLogger(__name__)
 
 HISTORY_EXCHANGES = 10  # context window per the scope appendix
 
@@ -61,7 +64,13 @@ class GenerationProvider(Protocol):
     ) -> Iterator[str]: ...
 
 
-class OpenAIGeneration:
+class ApiGeneration:
+    """Any OpenAI-compatible chat endpoint: OpenAI, OpenRouter, and friends.
+
+    Walks `llm_model_chain` in order — free tiers get rate-limited, and falling
+    back to the next model beats showing the user an error.
+    """
+
     def stream(
         self, question: str, chunks: list[RetrievedChunk], history: list[tuple[str, str]]
     ) -> Iterator[str]:
@@ -69,7 +78,18 @@ class OpenAIGeneration:
         from openai.types.chat import ChatCompletionMessageParam
 
         settings = get_settings()
-        client = OpenAI(api_key=settings.openai_api_key)
+        headers = {}
+        if settings.resolved_llm_base_url and "openrouter" in settings.resolved_llm_base_url:
+            headers = {
+                "HTTP-Referer": settings.openrouter_site_url or settings.nextauth_url,
+                "X-Title": settings.openrouter_app_name,
+            }
+        client = OpenAI(
+            api_key=settings.resolved_llm_key,
+            base_url=settings.resolved_llm_base_url,
+            default_headers=headers or None,
+        )
+
         sources = "\n\n".join(f"[{i + 1}] {c.content}" for i, c in enumerate(chunks))
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -82,13 +102,31 @@ class OpenAIGeneration:
                 messages.append({"role": "user", "content": content})
         messages.append({"role": "user", "content": question})
 
-        stream = client.chat.completions.create(
-            model=settings.llm_model, messages=messages, stream=True, temperature=0.2
-        )
-        for event in stream:
-            delta = event.choices[0].delta.content if event.choices else None
-            if delta:
-                yield delta
+        models = settings.llm_model_chain
+        last_error: Exception | None = None
+        for model in models:
+            produced = False
+            try:
+                stream = client.chat.completions.create(
+                    model=model, messages=messages, stream=True, temperature=0.2
+                )
+                for event in stream:
+                    delta = event.choices[0].delta.content if event.choices else None
+                    if delta:
+                        produced = True
+                        yield delta
+                if produced:
+                    return
+                log.warning("model %s returned no content; trying next", model)
+            except Exception as e:  # noqa: BLE001 — any provider error tries the next model
+                if produced:
+                    # tokens already reached the user; restarting would duplicate them
+                    raise
+                last_error = e
+                log.warning("model %s failed (%s); trying next", model, e)
+        raise RuntimeError(
+            f"all configured models failed ({', '.join(models)})"
+        ) from last_error
 
 
 class FakeGeneration:
@@ -110,8 +148,8 @@ class FakeGeneration:
 
 
 def get_generation_provider() -> GenerationProvider:
-    if get_settings().openai_api_key:
-        return OpenAIGeneration()
+    if get_settings().resolved_llm_key:
+        return ApiGeneration()
     return FakeGeneration()
 
 

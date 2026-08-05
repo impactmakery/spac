@@ -22,11 +22,40 @@ Requirements documents are held outside this repository.
 | Backend | FastAPI on Railway (web service, ingestion worker, cron service) |
 | Database | PostgreSQL 16 + pgvector — application data and embeddings in one database |
 | Files | Cloudflare R2, server-side upload, presigned downloads (25 MB cap) |
-| AI | OpenAI chat + embeddings, pinned by env var (`LLM_MODEL`, `EMBEDDING_MODEL`) |
+| AI | Any OpenAI-compatible provider (OpenAI, OpenRouter, …), pinned by env var |
 | Email | Resend |
 
 The assistant's permission filter runs **inside the retrieval SQL**, never as a
 post-filter: a user can never receive an answer sourced from content they cannot see.
+
+### AI providers
+
+Generation and embeddings are configured independently, so they can live on
+different providers — for example chat on OpenRouter's free models while
+embeddings stay on OpenAI:
+
+```
+LLM_API_KEY=...            LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL=google/gemma-4-26b-a4b-it:free
+LLM_FALLBACK_MODELS=nvidia/nemotron-3-super-120b-a12b:free   # used when rate-limited
+EMBEDDING_API_KEY=...      EMBEDDING_MODEL=text-embedding-3-large
+```
+
+Each API key travels with its own base URL, so one provider's key is never sent
+to another's endpoint. Moving everything to OpenAI is just `OPENAI_API_KEY` plus
+an OpenAI `LLM_MODEL`, with no other changes.
+
+**Changing `EMBEDDING_MODEL` requires re-embedding** — vectors from different
+models are not comparable:
+
+```
+python scripts/reembed.py --run
+```
+
+With no keys set the app still runs end to end on deterministic offline
+providers. The test suite always uses those: keys in `.env` are ignored during
+tests so the suite stays fast, free, and hermetic. Export a key in the shell to
+opt in to the live RAG evaluation.
 
 ## Local setup
 

@@ -16,6 +16,28 @@ from sqlalchemy.orm import Session, sessionmaker
 TEMPLATE = f"tah_test_template_{os.getpid()}"
 
 
+@pytest.fixture(autouse=True, scope="session")
+def _hermetic_providers():
+    """Keep the suite offline and deterministic.
+
+    A developer's .env holds real provider keys for running the app; tests must
+    not spend money or depend on a network, so those are ignored here. Keys
+    exported in the shell ARE honoured — that is how CI and the opt-in live RAG
+    eval ask for the real providers.
+    """
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    saved: dict[str, str] = {}
+    for field in ("openai_api_key", "llm_api_key", "embedding_api_key"):
+        if not os.environ.get(field.upper()):  # came from .env, not the shell
+            saved[field] = getattr(settings, field)
+            setattr(settings, field, "")
+    yield
+    for field, value in saved.items():
+        setattr(settings, field, value)
+
+
 @pytest.fixture(autouse=True)
 def _fresh_rate_limits():
     """Module-level limiters share state across tests (same 'testclient' IP)."""

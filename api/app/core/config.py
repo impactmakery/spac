@@ -14,9 +14,58 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     nextauth_url: str = ""
     api_base_url: str = ""
+    # LLM access. Any OpenAI-compatible endpoint works (OpenAI, OpenRouter, …);
+    # switching provider is an env change, never a code change. The *_api_key
+    # and *_base_url settings fall back to the OpenAI ones when unset, so an
+    # OpenAI-only deployment needs nothing but OPENAI_API_KEY.
     openai_api_key: str = ""
+    openai_base_url: str = ""
+
+    llm_api_key: str = ""
+    llm_base_url: str = ""
     llm_model: str = "gpt-4.1"
+    # Tried in order when the primary is rate-limited or returns nothing —
+    # free tiers run out, and a dead assistant is worse than a slower one.
+    llm_fallback_models: str = ""
+
+    embedding_api_key: str = ""
+    embedding_base_url: str = ""
     embedding_model: str = "text-embedding-3-large"
+
+    # Sent by OpenRouter for attribution; harmless elsewhere.
+    openrouter_site_url: str = ""
+    openrouter_app_name: str = "Tomorrow Agent Hub"
+
+    # A key and its base URL are one credential pair: never authenticate against
+    # one provider's endpoint with another provider's key. So each resolver picks
+    # the URL belonging to whichever key it selected.
+
+    @property
+    def resolved_llm_key(self) -> str:
+        return self.llm_api_key or self.openai_api_key
+
+    @property
+    def resolved_llm_base_url(self) -> str | None:
+        if self.llm_api_key:
+            return self.llm_base_url or None
+        return self.openai_base_url or None
+
+    @property
+    def resolved_embedding_key(self) -> str:
+        return self.embedding_api_key or self.llm_api_key or self.openai_api_key
+
+    @property
+    def resolved_embedding_base_url(self) -> str | None:
+        if self.embedding_api_key:
+            return self.embedding_base_url or None
+        if self.llm_api_key:
+            return self.embedding_base_url or self.llm_base_url or None
+        return self.embedding_base_url or self.openai_base_url or None
+
+    @property
+    def llm_model_chain(self) -> list[str]:
+        extra = [m.strip() for m in self.llm_fallback_models.split(",") if m.strip()]
+        return [self.llm_model, *extra]
     r2_account_id: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
