@@ -1,9 +1,14 @@
+import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import get_db
+from app.core.db import get_db as get_db_context
 from app.routers import admin_users as admin_users_router
 from app.routers import auth as auth_router
 from app.routers import board_items as board_items_router
@@ -18,6 +23,7 @@ from app.routers import kb_documents as kb_documents_router
 from app.routers import municipalities as municipalities_router
 from app.routers import stats as stats_router
 from app.routers import users as users_router
+from app.services.bootstrap import bootstrap_first_admin
 
 
 def create_app() -> FastAPI:
@@ -30,7 +36,17 @@ def create_app() -> FastAPI:
             "(see README), or provide it in the deployment's environment."
         )
 
-    app = FastAPI(title="Tomorrow Agent Hub API")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        if get_settings().bootstrap_admin_email:
+            try:
+                with next(get_db_context()) as db:
+                    bootstrap_first_admin(db)
+            except Exception:  # noqa: BLE001 — never block startup on this
+                logging.getLogger(__name__).exception("bootstrap admin failed")
+        yield
+
+    app = FastAPI(title="Tomorrow Agent Hub API", lifespan=lifespan)
     app.include_router(admin_users_router.router)
     app.include_router(auth_router.router)
     app.include_router(board_items_router.router)

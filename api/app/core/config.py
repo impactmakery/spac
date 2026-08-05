@@ -84,6 +84,12 @@ class Settings(BaseSettings):
     email_from: str = ""
     cron_secret: str = ""
     outbox_dir: str = "var/outbox"
+
+    # First system administrator, created on boot only when the platform has no
+    # users at all. Lets a fresh deployment be opened without shell access;
+    # ignored forever after, so leaving them set is harmless.
+    bootstrap_admin_email: str = ""
+    bootstrap_admin_password: str = ""
     files_dir: str = "var/files"
 
 
