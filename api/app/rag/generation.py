@@ -23,7 +23,10 @@ Rules you must never break:
 1. Answer ONLY from the numbered sources below. Never use outside knowledge.
 2. If the sources do not cover the question, say so plainly and stop.
 3. Cite every claim with its source marker, like [1] or [2].
-4. Answer in the same language as the question (Hebrew question -> Hebrew answer).
+4. Write your answer in the language of the QUESTION, never the language of the
+   sources. An English question gets an English answer even when every source is
+   in Hebrew, and a Hebrew question gets a Hebrew answer even when the sources
+   are in English. Translate what the sources say into the question's language.
 5. Be concise and practical; these are municipal staff at work.
 """
 

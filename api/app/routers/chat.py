@@ -24,10 +24,13 @@ from app.rag.embeddings import get_embedding_provider
 from app.rag.generation import (
     HISTORY_EXCHANGES,
     build_prompt,
+    detect_language,
     not_covered_reply,
     stream_answer,
 )
 from app.rag.retrieval import RETRIEVAL_SQL, retrieve
+from app.rag.smalltalk import classify as classify_smalltalk
+from app.rag.smalltalk import reply as smalltalk_reply
 from app.services.citations import build_citations
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -203,9 +206,15 @@ def send_message(
         ).all()
     ][::-1]
 
-    [query_embedding] = get_embedding_provider().embed([question])
-    chunks = retrieve(db, query_embedding=query_embedding, user=user)
-    citations = build_citations(db, chunks) if chunks else []
+    # A greeting is not a question about the material: answer it directly rather
+    # than retrieving, and never record it as an unanswered question.
+    smalltalk_kind = classify_smalltalk(question)
+    if smalltalk_kind:
+        chunks, citations = [], []
+    else:
+        [query_embedding] = get_embedding_provider().embed([question])
+        chunks = retrieve(db, query_embedding=query_embedding, user=user)
+        citations = build_citations(db, chunks) if chunks else []
     # a citation-less answer must be impossible: without reachable sources we
     # return the standard not-covered reply instead of generating.
     if not citations:
@@ -225,6 +234,9 @@ def send_message(
                 pieces.append(token)
                 yield _sse("token", token)
             answer = "".join(pieces)
+        elif smalltalk_kind:
+            answer = smalltalk_reply(smalltalk_kind, detect_language(question))
+            yield _sse("token", answer)
         else:
             answer = not_covered_reply(question)
             yield _sse("token", answer)
@@ -253,7 +265,7 @@ def send_message(
                     prompt=prompt or None,
                 )
             )
-            if not chunks:
+            if not chunks and not smalltalk_kind:
                 write_db.add(
                     UnansweredQuestion(
                         user_id=user_id,
