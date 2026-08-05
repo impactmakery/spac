@@ -384,6 +384,77 @@ class DepartmentPostComment(Base):
     )
 
 
+class Conversation(Base):
+    """Private per-user chat thread. No admin surface may expose these."""
+
+    __tablename__ = "conversations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint("role IN ('user','assistant')", name="ck_messages_role"),
+        Index("ix_messages_conversation", "conversation_id", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    citations: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class MessageDebug(Base):
+    """Retrieval audit trail per answer. Purged after 90 days by the nightly cron."""
+
+    __tablename__ = "message_debug"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    message_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=False
+    )
+    retrieval_sql: Mapped[str | None] = mapped_column(Text)
+    chunk_ids: Mapped[list | None] = mapped_column(JSONB)
+    scores: Mapped[list | None] = mapped_column(JSONB)
+    prompt: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class UnansweredQuestion(Base):
+    """Questions the available material did not cover — feeds KB curation."""
+
+    __tablename__ = "unanswered_questions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    municipality_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("municipalities.id", ondelete="CASCADE")
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class AuditLog(Base):
     """Append-only. No code path may UPDATE or DELETE rows in this table."""
 
