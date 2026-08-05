@@ -79,4 +79,13 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    # Hosting platforms hand out bare postgres:// or postgresql:// URLs, which
+    # SQLAlchemy maps to psycopg2 — a driver we deliberately do not install.
+    # Normalise to psycopg 3 so the platform's URL works unedited.
+    url = settings.database_url
+    for prefix in ("postgresql://", "postgres://"):
+        if url.startswith(prefix):
+            settings.database_url = "postgresql+psycopg://" + url[len(prefix) :]
+            break
+    return settings
