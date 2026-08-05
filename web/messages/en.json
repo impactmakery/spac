@@ -83,6 +83,26 @@
     "signOut": "Sign out",
     "openMenu": "Open menu"
   },
+  "chat": {
+    "title": "Tomorrow Agent",
+    "subtitle": "Grounded in the shared knowledge base",
+    "newChat": "New chat",
+    "conversations": "My conversations",
+    "noConversations": "No conversations yet",
+    "placeholder": "Ask the Tomorrow Agent a question...",
+    "send": "Send",
+    "grounding": "Answers come only from platform content you are allowed to see.",
+    "greeting": "Hello, I am the Tomorrow Agent. I work from the program's principles and your documents. How can I help you today?",
+    "sources": "Sources",
+    "thinking": "Searching the material...",
+    "rename": "Rename",
+    "delete": "Delete conversation",
+    "deleteConfirm": "This conversation is permanently deleted. Continue?",
+    "renamePrompt": "New conversation name",
+    "privateNote": "Your conversations are private and not visible to administrators.",
+    "errorSend": "Sending failed. Please try again.",
+    "rateLimited": "You reached the hourly message limit. Try again shortly."
+  },
   "board": {
     "globalTitle": "Shared Knowledge Board",
     "globalSubtitle": "A shared space for everyone — tools, guides, and links worth knowing about.",
