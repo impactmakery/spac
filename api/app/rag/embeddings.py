@@ -43,7 +43,15 @@ class FakeEmbeddings:
     retrieve their source passage and unrelated ones fall below the 0.35
     threshold — close enough in behaviour to exercise the whole RAG path
     without an API key. Real deployments use OpenAI embeddings.
+
+    Two details keep it usable: only the most distinctive tokens are kept
+    (longest first — short words carry little signal), and each kept token
+    contributes equally. Without the cap, cosine would decay with passage
+    length and long chunks would never clear the retrieval threshold, which
+    is an artifact of bag-of-words, not of real embeddings.
     """
+
+    MAX_FEATURES = 16
 
     STOPWORDS = frozenset(
         """a an and are as at be by for from how in is it of on or that the this to was what
@@ -57,7 +65,11 @@ class FakeEmbeddings:
     @classmethod
     def _tokens(cls, text: str) -> list[str]:
         raw = re.findall(r"[\w֐-׿]+", text.lower())
-        return [t for t in raw if t not in cls.STOPWORDS and (len(t) >= 2 or t.isdigit())]
+        kept = {
+            t for t in raw if t not in cls.STOPWORDS and (len(t) >= 2 or t.isdigit())
+        }
+        # longest tokens first: a crude but stable stand-in for distinctiveness
+        return sorted(kept, key=lambda t: (-len(t), t))[: cls.MAX_FEATURES]
 
     @classmethod
     def _one(cls, text: str) -> list[float]:
