@@ -10,3 +10,13 @@ api/var/
 dist/
 .DS_Store
 *.log
+
+# AI assistant context and working notes — local only
+.claude/
+CLAUDE.md
+AGENTS.md
+**/CLAUDE.md
+**/AGENTS.md
+
+# Requirements and internal working documents — kept out of the code repo
+docs/
