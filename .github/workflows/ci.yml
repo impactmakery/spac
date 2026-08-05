@@ -34,6 +34,11 @@ jobs:
     env:
       TEST_PG_URI: postgresql://tah:tah@localhost:5432/postgres
       DATABASE_URL: postgresql+psycopg://tah:tah@localhost:5432/postgres
+      # Test-only values. Production secrets live in the Railway env store;
+      # .env is never committed, so CI must supply its own.
+      JWT_SECRET: ci-test-jwt-secret-not-used-anywhere-else
+      CRON_SECRET: ci-test-cron-secret
+      NEXTAUTH_URL: http://localhost:3000
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

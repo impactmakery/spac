@@ -2,6 +2,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.routers import admin_users as admin_users_router
 from app.routers import auth as auth_router
@@ -20,6 +21,15 @@ from app.routers import users as users_router
 
 
 def create_app() -> FastAPI:
+    # Refuse to start rather than sign sessions with an empty key: PyJWT would
+    # otherwise fail deep inside the first login request, and an API serving
+    # unsigned sessions is worse than one that will not boot.
+    if not get_settings().jwt_secret:
+        raise RuntimeError(
+            "JWT_SECRET is not set. Copy .env.example to .env and fill it in "
+            "(see README), or provide it in the deployment's environment."
+        )
+
     app = FastAPI(title="Tomorrow Agent Hub API")
     app.include_router(admin_users_router.router)
     app.include_router(auth_router.router)
