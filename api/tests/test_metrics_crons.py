@@ -177,7 +177,9 @@ def test_weekly_digest_sends_and_skips(client, db, world, cron_headers, outbox):
     opted_out.digest_enabled = False
     db.commit()
 
-    r = client.post("/api/cron/weekly-digest", headers=cron_headers)
+    # force=true skips the Monday-morning check; the schedule is covered by
+    # test_weekly_digest_only_fires_monday_morning.
+    r = client.post("/api/cron/weekly-digest?force=true", headers=cron_headers)
     assert r.status_code == 200
     assert r.json()["sent"] >= 1
 
@@ -186,9 +188,9 @@ def test_weekly_digest_sends_and_skips(client, db, world, cron_headers, outbox):
     assert not any("w2@x.org" in b for b in bodies)
 
     # same week → no second send
-    assert client.post("/api/cron/weekly-digest", headers=cron_headers).json() == {
-        "skipped": "already_ran"
-    }
+    assert client.post(
+        "/api/cron/weekly-digest?force=true", headers=cron_headers
+    ).json() == {"skipped": "already_ran"}
 
 
 def test_archive_purge_deletes_expired_departments(client, db, world, cron_headers):
@@ -226,3 +228,39 @@ def test_cron_run_records_written(client, db, world, cron_headers):
     client.post("/api/cron/archive-purge", headers=cron_headers)
     run = db.query(CronRun).filter(CronRun.job == "archive-purge").one()
     assert run.finished_at is not None and run.counts is not None
+
+
+def test_weekly_digest_only_fires_monday_morning(
+    client, db, world, cron_headers, outbox, monkeypatch
+):
+    """One shared cron service ticks often, so the digest picks its own moment:
+    the first tick at or after Monday 08:00 Asia/Jerusalem."""
+    from datetime import datetime as real_datetime
+    from zoneinfo import ZoneInfo
+
+    import app.routers.crons as crons
+
+    tz = ZoneInfo("Asia/Jerusalem")
+
+    def freeze(moment):
+        class FrozenDatetime(real_datetime):
+            @classmethod
+            def now(cls, tz=None):
+                return moment
+
+        monkeypatch.setattr(crons, "datetime", FrozenDatetime)
+
+    def post():
+        return client.post("/api/cron/weekly-digest", headers=cron_headers).json()
+
+    freeze(real_datetime(2026, 8, 2, 9, 0, tzinfo=tz))  # Sunday
+    assert post() == {"skipped": "not_due"}
+
+    freeze(real_datetime(2026, 8, 3, 7, 0, tzinfo=tz))  # Monday, too early
+    assert post() == {"skipped": "not_due"}
+
+    freeze(real_datetime(2026, 8, 3, 8, 0, tzinfo=tz))  # Monday 08:00 — due
+    assert "sent" in post()
+
+    freeze(real_datetime(2026, 8, 3, 11, 0, tzinfo=tz))  # later the same week
+    assert post() == {"skipped": "already_ran"}

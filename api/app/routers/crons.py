@@ -74,9 +74,21 @@ def metrics_rollup(day: str | None = None, db: Session = Depends(get_db)) -> dic
     return {"day": target.isoformat(), **counts}
 
 
+DIGEST_WEEKDAY = 1  # Monday
+DIGEST_HOUR = 8  # 08:00 Asia/Jerusalem
+
+
 @router.post("/weekly-digest", dependencies=[Depends(require_cron_secret)])
-def weekly_digest(db: Session = Depends(get_db)) -> dict:
+def weekly_digest(force: bool = False, db: Session = Depends(get_db)) -> dict:
     now = datetime.now(TZ)
+    # One shared cron service calls every job on each tick, so this endpoint
+    # decides its own moment: the first tick at or after Monday 08:00 local.
+    # Computing in Asia/Jerusalem keeps it correct across daylight saving.
+    if not force and (
+        now.isoweekday() != DIGEST_WEEKDAY or now.hour < DIGEST_HOUR
+    ):
+        return {"skipped": "not_due"}
+
     iso_year, iso_week, _ = now.isocalendar()
     run = _claim(db, "weekly-digest", f"{iso_year}-W{iso_week:02d}")
     if run is None:

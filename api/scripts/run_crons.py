@@ -1,10 +1,13 @@
-"""Cron entrypoint for the Railway cron service.
+"""Cron entrypoint: calls every scheduled job on each tick.
 
-Railway triggers a service on a schedule; this decides which job to run from
-CRON_JOB and calls the endpoint on the API. The endpoints are idempotent per
-period, so a duplicate trigger is a no-op.
+One service runs them all rather than one service per schedule, because each
+endpoint is idempotent per period and decides whether it is due: the rollup
+and purge run once a day, the digest only at Monday 08:00 Asia/Jerusalem. A
+repeated tick is a no-op, so an hourly schedule is safe and DST-proof.
 
-Usage: CRON_JOB=metrics-rollup python scripts/run_crons.py
+Set CRON_JOB to run a single job instead of all of them.
+
+Usage: python scripts/run_crons.py
 """
 
 import os
@@ -12,29 +15,40 @@ import sys
 import urllib.error
 import urllib.request
 
-JOBS = {"metrics-rollup", "weekly-digest", "archive-purge"}
+JOBS = ("metrics-rollup", "archive-purge", "weekly-digest")
 
 
-def main() -> None:
-    job = os.environ.get("CRON_JOB", "").strip()
-    if job not in JOBS:
-        sys.exit(f"CRON_JOB must be one of {sorted(JOBS)}, got {job!r}")
-
-    base = os.environ.get("API_BASE_URL", "").rstrip("/")
-    secret = os.environ.get("CRON_SECRET", "")
-    if not base or not secret:
-        sys.exit("API_BASE_URL and CRON_SECRET are required")
-
+def call(base: str, secret: str, job: str) -> bool:
     req = urllib.request.Request(
         f"{base}/api/cron/{job}",
         method="POST",
         headers={"Authorization": f"Bearer {secret}"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=600) as res:
-            print(f"{job}: {res.status} {res.read().decode()[:500]}")
+        with urllib.request.urlopen(req, timeout=900) as res:
+            print(f"{job}: {res.status} {res.read().decode()[:400]}", flush=True)
+        return True
     except urllib.error.HTTPError as e:
-        sys.exit(f"{job} failed: {e.code} {e.read().decode()[:500]}")
+        print(f"{job}: FAILED {e.code} {e.read().decode()[:400]}", flush=True)
+        return False
+
+
+def main() -> None:
+    base = os.environ.get("API_BASE_URL", "").rstrip("/")
+    secret = os.environ.get("CRON_SECRET", "")
+    if not base or not secret:
+        sys.exit("API_BASE_URL and CRON_SECRET are required")
+
+    only = os.environ.get("CRON_JOB", "").strip()
+    jobs = (only,) if only else JOBS
+    if only and only not in JOBS:
+        sys.exit(f"CRON_JOB must be one of {list(JOBS)}, got {only!r}")
+
+    # Run every job even if an earlier one fails, then fail the run if any did,
+    # so a broken job is visible in Railway without silencing the others.
+    failures = [job for job in jobs if not call(base, secret, job)]
+    if failures:
+        sys.exit(f"failed: {', '.join(failures)}")
 
 
 if __name__ == "__main__":
