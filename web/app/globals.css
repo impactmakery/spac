@@ -27,11 +27,15 @@
   --sidebar-accent: hsl(180 38% 93%);
   --sidebar-accent-foreground: hsl(180 41% 24%);
   --sidebar-border: hsl(0 0% 90%);
-  --chart-1: hsl(180 41% 30%);
-  --chart-2: hsl(173 58% 39%);
-  --chart-3: hsl(27 87% 60%);
-  --chart-4: hsl(240 50% 55%);
-  --chart-5: hsl(340 60% 55%);
+  /* Categorical series colors, assigned in this fixed order and never cycled.
+     Validated with the dataviz palette checker (lightness band, chroma floor,
+     CVD separation, normal-vision floor, contrast) — do not hand-tune. */
+  --chart-1: #0b9488;
+  --chart-2: #d97706;
+  --chart-3: #4f46e5;
+  --chart-4: #be185d;
+  --chart-5: #65a30d;
+  --chart-grid: hsl(0 0% 88%);
 }
 
 @theme inline {
@@ -64,6 +68,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-chart-grid: var(--chart-grid);
   --font-sans: var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
 }
 

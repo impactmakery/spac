@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Computed,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -453,6 +454,84 @@ class UnansweredQuestion(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class UserLogin(Base):
+    """One row per successful login — the source for daily active users."""
+
+    __tablename__ = "user_logins"
+    __table_args__ = (Index("ix_user_logins_day", "created_at", "municipality_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    municipality_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("municipalities.id", ondelete="CASCADE")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class DailyMetric(Base):
+    """Nightly rollup. Dashboards read only from here — never live heavy queries.
+
+    municipality_id NULL = platform total; department_id NULL = municipality total.
+    """
+
+    __tablename__ = "daily_metrics"
+    __table_args__ = (
+        Index(
+            "uq_daily_metrics_scope",
+            "day",
+            "municipality_id",
+            "department_id",
+            unique=True,
+            postgresql_nulls_not_distinct=True,
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    municipality_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("municipalities.id", ondelete="CASCADE")
+    )
+    department_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE")
+    )
+    active_users: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    chat_sessions: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    chat_messages: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    unanswered: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    board_items: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    comments: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    likes: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    files_uploaded: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class CronRun(Base):
+    """Idempotency ledger + audit for scheduled jobs."""
+
+    __tablename__ = "cron_runs"
+    __table_args__ = (
+        Index("uq_cron_runs_period", "job", "period_key", unique=True),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    job: Mapped[str] = mapped_column(Text, nullable=False)
+    period_key: Mapped[str] = mapped_column(Text, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    counts: Mapped[dict | None] = mapped_column(JSONB)
+    error: Mapped[str | None] = mapped_column(Text)
 
 
 class AuditLog(Base):

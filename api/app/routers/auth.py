@@ -15,7 +15,14 @@ from app.core.security import (
     new_raw_token,
     verify_password,
 )
-from app.models import Department, Invitation, Municipality, PasswordResetToken, User
+from app.models import (
+    Department,
+    Invitation,
+    Municipality,
+    PasswordResetToken,
+    User,
+    UserLogin,
+)
 from app.schemas.auth import (
     AcceptInviteIn,
     ChangePasswordIn,
@@ -66,6 +73,7 @@ def login(body: LoginIn, request: Request, db: Session = Depends(get_db)) -> Log
     if user.municipality is not None and user.municipality.status != "active":
         raise HTTPException(status_code=401, detail="invalid_credentials")
     user.last_login_at = datetime.now(UTC)
+    db.add(UserLogin(user_id=user.id, municipality_id=user.municipality_id))
     db.commit()
     return LoginOut(access_token=create_access_token(user), user=user_out(user))
 

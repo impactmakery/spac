@@ -8,12 +8,14 @@ from app.routers import auth as auth_router
 from app.routers import board_items as board_items_router
 from app.routers import categories as categories_router
 from app.routers import chat as chat_router
+from app.routers import crons as crons_router
 from app.routers import department_content as department_content_router
 from app.routers import departments as departments_router
 from app.routers import files as files_router
 from app.routers import invitations as invitations_router
 from app.routers import kb_documents as kb_documents_router
 from app.routers import municipalities as municipalities_router
+from app.routers import stats as stats_router
 from app.routers import users as users_router
 
 
@@ -24,12 +26,14 @@ def create_app() -> FastAPI:
     app.include_router(board_items_router.router)
     app.include_router(categories_router.router)
     app.include_router(chat_router.router)
+    app.include_router(crons_router.router)
     app.include_router(department_content_router.router)
     app.include_router(departments_router.router)
     app.include_router(files_router.router)
     app.include_router(invitations_router.router)
     app.include_router(kb_documents_router.router)
     app.include_router(municipalities_router.router)
+    app.include_router(stats_router.router)
     app.include_router(users_router.router)
 
     @app.get("/health")

@@ -7,6 +7,8 @@ from app.models.base import (
     Category,
     Chunk,
     Conversation,
+    CronRun,
+    DailyMetric,
     Department,
     DepartmentFile,
     DepartmentPost,
@@ -21,6 +23,7 @@ from app.models.base import (
     UnansweredQuestion,
     User,
     UserDepartment,
+    UserLogin,
 )
 
 __all__ = [
@@ -32,6 +35,8 @@ __all__ = [
     "Category",
     "Chunk",
     "Conversation",
+    "CronRun",
+    "DailyMetric",
     "Department",
     "DepartmentFile",
     "DepartmentPost",
@@ -46,4 +51,5 @@ __all__ = [
     "UnansweredQuestion",
     "User",
     "UserDepartment",
+    "UserLogin",
 ]
