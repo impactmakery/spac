@@ -66,14 +66,20 @@ class OpenAIGeneration:
         self, question: str, chunks: list[RetrievedChunk], history: list[tuple[str, str]]
     ) -> Iterator[str]:
         from openai import OpenAI
+        from openai.types.chat import ChatCompletionMessageParam
 
         settings = get_settings()
         client = OpenAI(api_key=settings.openai_api_key)
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
         sources = "\n\n".join(f"[{i + 1}] {c.content}" for i, c in enumerate(chunks))
-        messages.append({"role": "system", "content": f"SOURCES:\n{sources}"})
+        messages: list[ChatCompletionMessageParam] = [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "system", "content": f"SOURCES:\n{sources}"},
+        ]
         for role, content in history[-HISTORY_EXCHANGES * 2 :]:
-            messages.append({"role": role, "content": content})
+            if role == "assistant":
+                messages.append({"role": "assistant", "content": content})
+            else:
+                messages.append({"role": "user", "content": content})
         messages.append({"role": "user", "content": question})
 
         stream = client.chat.completions.create(
