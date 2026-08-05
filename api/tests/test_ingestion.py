@@ -111,3 +111,37 @@ def test_reingest_replaces_chunks(db, files_dir):
     chunks = db.query(Chunk).filter(Chunk.source_id == doc.id).all()
     assert len(chunks) == 1
     assert "Second version" in chunks[0].content
+
+
+def test_source_deleted_mid_run_does_not_kill_the_worker(db, files_dir, monkeypatch):
+    """Deleting a document removes its job rows; the worker must survive that
+    rather than crash the whole cycle on a vanished row."""
+    from sqlalchemy import delete as sql_delete
+
+    from app.models import IngestionJob, KbDocument
+    from app.services import ingestion
+    from app.services.ingestion import enqueue, run_pending_jobs
+    from app.services.storage import get_storage
+
+    doc = _make_doc(db)
+    get_storage().put(doc.storage_key, _docx_bytes("content"), "x")
+    enqueue(db, source_type="kb", source_id=doc.id, visibility="global",
+            storage_key=doc.storage_key, ext="docx")
+    db.commit()
+
+    real_process = ingestion._process
+
+    def delete_then_process(session, job):
+        # simulate the API deleting the document while this job is in flight
+        session.execute(sql_delete(IngestionJob).where(IngestionJob.id == job.id))
+        session.execute(sql_delete(KbDocument).where(KbDocument.id == doc.id))
+        session.commit()
+        return real_process(session, job)
+
+    monkeypatch.setattr(ingestion, "_process", delete_then_process)
+
+    # must not raise, and must leave nothing behind
+    run_pending_jobs(db)
+    db.expire_all()
+    assert db.query(IngestionJob).count() == 0
+    assert db.query(KbDocument).count() == 0

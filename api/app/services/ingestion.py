@@ -130,29 +130,36 @@ def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
     db.commit()
 
     for job in claimed:
+        # Read the identifiers up front: deleting a document removes its job
+        # rows, and after a rollback even reading job.id would try to reload a
+        # row that is gone (ObjectDeletedError) and kill the worker cycle.
+        job_id, source_type, source_id = job.id, job.source_type, job.source_id
         try:
             _process(db, job)
             job.status = "done"
-            _set_source_status(db, job.source_type, job.source_id, "indexed", None)
+            _set_source_status(db, source_type, source_id, "indexed", None)
             db.commit()
         except Exception as e:  # noqa: BLE001 — any failure retries then marks terminal
             db.rollback()
-            reloaded = db.get(IngestionJob, job.id)
+            reloaded = db.get(IngestionJob, job_id)
             if reloaded is None:
+                # the source was deleted while we were indexing it — nothing to retry
+                log.info("ingestion job %s vanished mid-run; skipping", job_id)
                 continue
-            job = reloaded
-            job.attempts += 1
-            job.last_error = str(e)[:2000]
-            if job.attempts >= MAX_ATTEMPTS:
-                job.status = "failed"
+            reloaded.attempts += 1
+            reloaded.last_error = str(e)[:2000]
+            if reloaded.attempts >= MAX_ATTEMPTS:
+                reloaded.status = "failed"
                 _set_source_status(
-                    db, job.source_type, job.source_id, "not_indexable", job.last_error
+                    db, source_type, source_id, "not_indexable", reloaded.last_error
                 )
-                log.error("ingestion terminal failure job=%s: %s", job.id, e)
+                log.error("ingestion terminal failure job=%s: %s", job_id, e)
             else:
-                job.status = "queued"
-                backoff = BACKOFF_BASE_SECONDS * (2**job.attempts)
-                job.run_after = datetime.now(UTC) + timedelta(seconds=backoff)
-                log.warning("ingestion retry %s/3 job=%s: %s", job.attempts, job.id, e)
+                reloaded.status = "queued"
+                backoff = BACKOFF_BASE_SECONDS * (2**reloaded.attempts)
+                reloaded.run_after = datetime.now(UTC) + timedelta(seconds=backoff)
+                log.warning(
+                    "ingestion retry %s/3 job=%s: %s", reloaded.attempts, job_id, e
+                )
             db.commit()
     return len(claimed)
