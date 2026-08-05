@@ -99,7 +99,9 @@ class R2Provider:
             Params={
                 "Bucket": get_settings().r2_bucket,
                 "Key": key,
-                "ResponseContentDisposition": f"attachment; filename*=UTF-8''{quote(filename)}",
+                # `inline`, matching the local provider: the document page previews
+                # PDFs in an iframe, and `attachment` would force a download there.
+                "ResponseContentDisposition": f"inline; filename*=UTF-8''{quote(filename)}",
             },
             ExpiresIn=expires_seconds,
         )
