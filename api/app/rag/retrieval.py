@@ -16,11 +16,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models import User
+from app.rag.reranking import rerank as rerank_hits
 
 TOP_K = 12
 MIN_SIMILARITY = 0.35
 CANDIDATES = 40  # per arm, before fusion
 RRF_K = 60  # standard damping: rank 1 scores 1/61, rank 2 1/62, …
+RERANK_POOL = 30  # fused rows handed to the reranker, which then picks TOP_K
 
 # The predicate is written once and interpolated into both arms so they can
 # never drift apart.
@@ -132,6 +134,7 @@ def retrieve(
     query_text: str = "",
     limit: int = TOP_K,
     min_similarity: float = MIN_SIMILARITY,
+    rerank_results: bool = True,
 ) -> list[RetrievedChunk]:
     params = {
         "query_embedding": "[" + ",".join(str(x) for x in query_embedding) + "]",
@@ -144,10 +147,12 @@ def retrieve(
         "min_similarity": min_similarity,
         "candidates": CANDIDATES,
         "rrf_k": RRF_K,
-        "top_k": limit,
+        # Over-fetch so the reranker has something to choose between. Ranking
+        # exactly `limit` rows and then reordering them changes nothing.
+        "top_k": max(limit, RERANK_POOL) if rerank_results else limit,
     }
     rows = db.execute(text(RETRIEVAL_SQL), params).mappings().all()
-    return [
+    hits = [
         RetrievedChunk(
             id=r["id"],
             source_type=r["source_type"],
@@ -163,3 +168,8 @@ def retrieve(
         )
         for r in rows
     ]
+    if rerank_results and len(hits) > limit:
+        # Only ever reorders and drops rows the permission filter already
+        # returned, so it cannot widen what this user can see.
+        hits = rerank_hits(query_text, hits, limit)
+    return hits

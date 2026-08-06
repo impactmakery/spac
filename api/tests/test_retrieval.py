@@ -305,3 +305,72 @@ def test_municipality_admin_does_not_retrieve_non_member_department_content(db, 
     announcement = "City One municipality wide announcement"
     add_chunk(db, text=announcement, visibility="municipality", municipality=world["m1"])
     assert [h.content for h in retrieve_for(db, admin, announcement)] == [announcement]
+
+
+# --- re-ranking --------------------------------------------------------------
+
+
+def test_reranking_caps_how_much_one_document_can_dominate(db, world):
+    """A long document legitimately holds several relevant passages, but it must
+    not fill the whole context window and crowd out the one paragraph elsewhere
+    that completes the answer."""
+    import uuid as _uuid
+
+    from app.models import Chunk
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.reranking import MAX_PER_SOURCE
+
+    hogging_source = _uuid.uuid4()
+    for i in range(20):  # more than TOP_K, so the slots are genuinely scarce
+        text = f"Waste collection schedule detail paragraph {i} for the northern district"
+        db.add(Chunk(
+            source_type="kb", source_id=hogging_source, visibility="global",
+            content=text, embedding=get_embedding_provider().embed([text])[0],
+        ))
+    other = "Waste collection schedule contact number for the northern district office"
+    add_chunk(db, text=other, visibility="global")
+    db.commit()
+
+    hits = retrieve_for(db, world["member"], "Waste collection schedule northern district")
+    from_hog = [h for h in hits if h.source_id == hogging_source]
+    assert len(from_hog) <= MAX_PER_SOURCE, "one document filled the answer"
+    assert any(h.content == other for h in hits), "the second source was crowded out"
+
+
+def test_reranking_cannot_widen_the_permission_boundary(db, world):
+    """Re-ranking runs on rows the SQL already returned, so it can only reorder
+    and drop. This is the property that makes it safe to iterate on."""
+    secret = "Education staffing plan for the reranking test"
+    add_chunk(
+        db, text=secret, visibility="department",
+        municipality=world["m1"], department=world["d1b"],
+    )
+    for i in range(20):
+        add_chunk(db, text=f"Education staffing guidance note {i}", visibility="global")
+
+    hits = retrieve_for(db, world["member"], "Education staffing plan")
+    assert all(h.content != secret for h in hits)
+    assert all(h.visibility == "global" for h in hits)
+
+
+def test_reranking_never_returns_more_than_asked(db, world):
+    from app.rag.retrieval import TOP_K
+
+    for i in range(40):
+        add_chunk(db, text=f"Municipal procedure number {i} for budget review", visibility="global")
+    hits = retrieve_for(db, world["member"], "Municipal procedure budget review")
+    assert 0 < len(hits) <= TOP_K
+
+
+def test_reranking_can_be_turned_off(db, world):
+    """The raw fused order stays reachable, so a regression can be isolated."""
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+
+    for i in range(6):
+        add_chunk(db, text=f"Recycling centre opening hours variant {i}", visibility="global")
+    q = "Recycling centre opening hours"
+    [vec] = get_embedding_provider().embed([q])
+    plain = retrieve(db, query_embedding=vec, user=world["member"], query_text=q,
+                     rerank_results=False)
+    assert plain == sorted(plain, key=lambda h: (-h.score, -h.similarity))
