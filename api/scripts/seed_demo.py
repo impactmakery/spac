@@ -7,6 +7,10 @@ Usage:
 Idempotent: it keys on the demo municipality names and refuses to run twice, so
 it is safe against a database that already has real data in it.
 
+There is no un-seed. Removing this data by hand means FK-ordered deletes across
+roughly ten tables plus the R2 objects — ask for a `--remove` flag rather than
+improvising it against production.
+
 The content is deliberately chosen to demonstrate the permission model rather
 than to look pretty. Karmiel's education department holds a staffing figure
 that appears nowhere else, so asking about it as a Nahariya user must return
@@ -320,6 +324,7 @@ def seed(db: Session, *, index: bool) -> None:
     print("  admin.nahariya@tomorrow-hub.org    municipality admin (Nahariya)")
     print("  admin.karmiel@tomorrow-hub.org     municipality admin (Karmiel)")
     print("  welfare.nahariya@tomorrow-hub.org  department user (Nahariya / Welfare)")
+    print("  education.nahariya@tomorrow-hub.org department user (Nahariya / Education)")
     print("  education.karmiel@tomorrow-hub.org department user (Karmiel / Education)")
 
 
