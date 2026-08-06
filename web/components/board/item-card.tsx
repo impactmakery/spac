@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Heart, Link2, MessageCircle } from "lucide-react";
+import { FileText, Heart, Link2, MessageCircle, Sparkles } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
@@ -49,6 +49,12 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
         <span className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary">
           <FileText className="size-4" />
           {item.filename}
+        </span>
+      )}
+      {item.prompt_text && (
+        <span className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary">
+          <Sparkles className="size-4" />
+          {t("promptHeading")}
         </span>
       )}
 

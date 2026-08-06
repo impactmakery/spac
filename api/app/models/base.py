@@ -294,6 +294,9 @@ class BoardItem(Base):
     )
     author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     link_url: Mapped[str | None] = mapped_column(Text)
+    # A shareable prompt or agent brief: the instructions themselves, kept as
+    # text so colleagues can copy them and so the assistant can find them.
+    prompt_text: Mapped[str | None] = mapped_column(Text)
     filename: Mapped[str | None] = mapped_column(Text)
     storage_key: Mapped[str | None] = mapped_column(Text)
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)

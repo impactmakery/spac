@@ -19,6 +19,8 @@ export interface BoardItemRow {
   scope: "global" | "municipality";
   author: AuthorRef;
   link_url: string | null;
+  /** A shared prompt or agent brief, kept as copyable text. */
+  prompt_text: string | null;
   filename: string | null;
   size_bytes: number | null;
   like_count: number;

@@ -21,7 +21,11 @@ class StorageProvider(Protocol):
     def open(self, key: str) -> bytes: ...
     def delete(self, key: str) -> None: ...
     def download_url(
-        self, key: str, filename: str, expires_seconds: int = DEFAULT_EXPIRES
+        self,
+        key: str,
+        filename: str,
+        expires_seconds: int = DEFAULT_EXPIRES,
+        content_type: str | None = None,
     ) -> str: ...
 
 
@@ -59,11 +63,18 @@ class LocalDiskProvider:
         self._path(key).unlink(missing_ok=True)
 
     def download_url(
-        self, key: str, filename: str, expires_seconds: int = DEFAULT_EXPIRES
+        self,
+        key: str,
+        filename: str,
+        expires_seconds: int = DEFAULT_EXPIRES,
+        content_type: str | None = None,
     ) -> str:
         exp = int(time.time()) + expires_seconds
         sig = _sign(key, exp)
-        return f"/api/files/{key}?exp={exp}&sig={sig}&name={quote(filename)}"
+        url = f"/api/files/{key}?exp={exp}&sig={sig}&name={quote(filename)}"
+        if content_type:
+            url += f"&ct={quote(content_type)}"
+        return url
 
 
 class R2Provider:
@@ -92,16 +103,30 @@ class R2Provider:
         self._client().delete_object(Bucket=get_settings().r2_bucket, Key=key)
 
     def download_url(
-        self, key: str, filename: str, expires_seconds: int = DEFAULT_EXPIRES
+        self,
+        key: str,
+        filename: str,
+        expires_seconds: int = DEFAULT_EXPIRES,
+        content_type: str | None = None,
     ) -> str:
+        # `inline` only for types we are willing to render — the document page
+        # previews PDFs and images in the browser. Everything else downloads:
+        # any file type may be uploaded, but serving an arbitrary one inline
+        # from this origin would let one upload run script against another
+        # user's session.
+        from app.services.uploads import is_inline_safe
+
+        disposition = "inline" if is_inline_safe(content_type) else "attachment"
         return self._client().generate_presigned_url(
             "get_object",
             Params={
                 "Bucket": get_settings().r2_bucket,
                 "Key": key,
-                # `inline`, matching the local provider: the document page previews
-                # PDFs in an iframe, and `attachment` would force a download there.
-                "ResponseContentDisposition": f"inline; filename*=UTF-8''{quote(filename)}",
+                "ResponseContentDisposition": (
+                    f"{disposition}; filename*=UTF-8''{quote(filename)}"
+                ),
+                # Stops a browser sniffing an opaque download back into HTML.
+                "ResponseContentType": content_type or "application/octet-stream",
             },
             ExpiresIn=expires_seconds,
         )

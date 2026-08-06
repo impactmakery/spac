@@ -181,7 +181,15 @@
     "externalBody": "הקישור מוביל לאתר חיצוני: {url}",
     "externalContinue": "המשך לאתר",
     "cancel": "ביטול",
-    "byAuthor": "{name} · {municipality}"
+    "byAuthor": "{name} · {municipality}",
+    "typePrompt": "פרומפט / סוכן",
+    "promptPlaceholder": "הדביקו כאן את הפרומפט או את הוראות הסוכן…",
+    "promptLinkOptional": "קישור לסוכן (לא חובה)",
+    "fileHint": "כל סוג קובץ, עד 25 מ\"ב.",
+    "errPromptLength": "הפרומפט ארוך מדי.",
+    "promptHeading": "פרומפט",
+    "copyPrompt": "העתקה",
+    "copied": "הועתק"
   },
   "departmentArea": {
     "filesTab": "קבצים",

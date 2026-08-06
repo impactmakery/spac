@@ -75,7 +75,7 @@ def test_publish_link_and_list(client, db, world):
     assert db.query(IngestionJob).filter(IngestionJob.source_type == "board").count() == 1
 
 
-def test_xor_file_link_enforced(client, world):
+def test_a_post_must_carry_something_and_links_must_be_https(client, world):
     headers = auth(client, "u1@x.org")
     r = client.post(
         "/api/board-items",
@@ -254,3 +254,83 @@ def test_search_and_category_filter(client, db, world):
         f"/api/board-items?category_id={other_cat.id}", headers=headers
     ).json()
     assert page["items"] == []
+
+
+
+# --- shared prompts and agents -----------------------------------------------
+
+
+def publish_prompt(client, headers, world, **extra):
+    data = {
+        "title": "פרומפט לניסוח מכתב לתושב",
+        "category_id": str(world["cat"].id),
+        "destination": "global",
+        "prompt_text": "אתה עוזר בעירייה. נסח תשובה מנומסת בעברית לפניית תושב.",
+    }
+    data.update(extra)
+    return client.post("/api/board-items", data=data, headers=headers)
+
+
+def test_publish_a_prompt_with_no_file_and_no_link(client, world):
+    """A shared prompt is content in its own right. The previous rule demanded a
+    file or a link, which would have rejected the most useful kind of post."""
+    res = publish_prompt(client, auth(client, "u1@x.org"), world)
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert "אתה עוזר בעירייה" in body["prompt_text"]
+    assert body["link_url"] is None and body["filename"] is None
+
+
+def test_a_prompt_may_travel_with_a_link_to_where_the_agent_lives(client, world):
+    res = publish_prompt(
+        client, auth(client, "u1@x.org"), world,
+        title="Resident enquiry agent",
+        link_url="https://example.org/agents/resident-enquiry",
+    )
+    assert res.status_code == 201, res.text
+    body = res.json()
+    assert body["prompt_text"] and body["link_url"]
+
+
+def test_a_shared_prompt_is_findable_by_the_assistant(client, db, world):
+    """Storing the prompt as text is what makes it searchable — otherwise a
+    colleague can only find it by scrolling the board."""
+    import uuid
+
+    from app.models import Chunk
+    from app.services.ingestion import run_pending_jobs
+
+    res = publish_prompt(
+        client, auth(client, "u1@x.org"), world,
+        title="Tender summary prompt",
+        prompt_text="Summarise a tender document under regulation 17.3 in Hebrew",
+    )
+    assert res.status_code == 201
+    item_id = uuid.UUID(res.json()["id"])
+
+    run_pending_jobs(db)
+    chunks = db.query(Chunk).filter(Chunk.source_id == item_id).all()
+    assert chunks, "the prompt was never indexed"
+    assert any("regulation 17.3" in c.content for c in chunks)
+
+
+def test_any_file_type_can_be_attached_to_a_post(client, db, world, files_dir):
+    """Unrestricted uploads are a product decision; an unreadable type must not
+    fail the post."""
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    res = client.post(
+        "/api/board-items",
+        data={
+            "title": "Team screenshot",
+            "category_id": str(world["cat"].id),
+            "destination": "global",
+        },
+        files={"file": ("diagram.zip", b"PK\x03\x04nonsense", "application/zip")},
+        headers=headers,
+    )
+    assert res.status_code == 201, res.text
+    assert res.json()["filename"] == "diagram.zip"
+
+    run_pending_jobs(db)  # must not raise on a type it cannot read

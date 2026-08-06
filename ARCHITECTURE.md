@@ -213,7 +213,28 @@ list so nobody has to rediscover it by diffing:
 | Extraction via the `unstructured` library | explicit `pypdf` / `python-docx` / `python-pptx` / `openpyxl` | `unstructured` pulled in ~1.3 GB of transitive dependencies for four file types we parse directly; the image dropped from 1527 MB to 205 MB |
 | LangChain for RAG orchestration | plain code | see below |
 | Retrieval: cosine top-12, ≥0.35 | that, **plus** a lexical arm and a graph-traversal arm fused with RRF, then re-ranked | cosine alone cannot find `form 4B` or `regulation 17.3`, and neither arm answers questions about connections between documents; the spec's threshold and top-12 are unchanged |
-| — | OCR for scanned PDFs | not in the appendix at all, but municipal archives are largely scanned paper, which would otherwise be silently unusable |
+| — | OCR for scanned PDFs and images | not in the appendix at all, but municipal archives are largely scanned paper, which would otherwise be silently unusable |
+| Board content: exactly one of file **XOR** https link | file, link, **or a shared prompt** — and a prompt may carry a link | a prompt or agent brief is a third kind of content and the one colleagues most want to pass around; the old rule would have rejected it outright. The prompt is stored as text, so the assistant can find it |
+| Uploads: PDF/DOCX/PPTX/XLSX only, everywhere | **board accepts any type**; knowledge base and department areas keep a whitelist, widened to include images and plain text | client decision, taken against my advice and recorded here. The board is the sharing surface; the other two exist to hold material the assistant reads, where a binary is dead weight. See below |
+
+### Unrestricted board uploads, and the control that replaced the whitelist
+
+The board accepts any file type by explicit client decision. The extension
+whitelist is therefore no longer a control there, and one thing replaces it:
+
+**Nothing outside a known-safe set is ever rendered inline.** An uploaded
+`.html` or `.svg` served inline from this origin would run script against
+another user's session — the platform attacking its own users, which is a
+different problem from choosing to allow a file type. PDFs and images preview;
+everything else downloads, with `X-Content-Type-Options: nosniff` and a
+restrictive `Content-Security-Policy` so a browser cannot sniff a download back
+into HTML. The browser's declared content type is never trusted, since it is
+attacker-supplied and decides how the file is later served.
+
+What is *not* mitigated, and should be stated to whoever accepts the risk: the
+platform will distribute executables and archives between municipalities without
+scanning them for malware. `api/tests/test_uploads_any_type.py` holds the
+boundary that does exist.
 | Chunking: 800 tokens / 150 overlap | that, cut at paragraph boundaries, title prefixed | same budget, better boundaries |
 | Empty retrieval → "not covered" | that, **except** greetings are answered conversationally first | "hello" returning "not covered" and landing in the unanswered-questions list is not the intent of the rule |
 | Nightly backups, 30-day retention | **not enabled yet** | not a plan limitation — Railway schedules backups per volume and no single schedule offers 30-day nightly retention; see `RUNBOOK.md` |

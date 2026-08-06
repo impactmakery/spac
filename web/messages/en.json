@@ -181,7 +181,15 @@
     "externalBody": "This link opens an external site: {url}",
     "externalContinue": "Continue to site",
     "cancel": "Cancel",
-    "byAuthor": "{name} · {municipality}"
+    "byAuthor": "{name} · {municipality}",
+    "typePrompt": "Prompt / agent",
+    "promptPlaceholder": "Paste the prompt or the agent's instructions here…",
+    "promptLinkOptional": "Link to the agent (optional)",
+    "fileHint": "Any file type, up to 25 MB.",
+    "errPromptLength": "The prompt is too long.",
+    "promptHeading": "Prompt",
+    "copyPrompt": "Copy",
+    "copied": "Copied"
   },
   "departmentArea": {
     "filesTab": "Files",

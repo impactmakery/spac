@@ -95,7 +95,9 @@ def get_document(
     base = _out(db, doc)
     return KbDocDetail(
         **base.model_dump(),
-        download_url=get_storage().download_url(doc.storage_key, doc.filename),
+        download_url=get_storage().download_url(
+            doc.storage_key, doc.filename, content_type=doc.content_type
+        ),
         error=doc.error if (user.role == "system_admin" or doc.uploader_id == user.id) else None,
     )
 

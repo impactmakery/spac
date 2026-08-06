@@ -30,6 +30,7 @@ PAGE_SIZE = 30
 MAX_TITLE = 120
 MAX_DESCRIPTION = 2000
 MAX_COMMENT = 1000
+MAX_PROMPT = 20000  # a shared prompt or agent brief, generous by design
 
 
 class CategoryRef(BaseModel):
@@ -53,6 +54,7 @@ class BoardItemOut(BaseModel):
     scope: str
     author: AuthorRef
     link_url: str | None
+    prompt_text: str | None
     filename: str | None
     size_bytes: int | None
     like_count: int
@@ -134,6 +136,7 @@ def _out(db: Session, item: BoardItem, user: User) -> BoardItemOut:
         scope=item.scope,
         author=_author_ref(db, item.author_id),
         link_url=item.link_url,
+        prompt_text=item.prompt_text,
         filename=item.filename,
         size_bytes=item.size_bytes,
         like_count=like_count,
@@ -194,14 +197,19 @@ def list_items(
 
 def _validate_common(
     db: Session, *, title: str, description: str | None, category_id: str,
-    link_url: str | None, has_file: bool,
+    link_url: str | None, has_file: bool, prompt_text: str | None = None,
 ) -> Category:
     if not title or len(title) > MAX_TITLE:
         raise HTTPException(status_code=422, detail="invalid_title")
     if description and len(description) > MAX_DESCRIPTION:
         raise HTTPException(status_code=422, detail="invalid_description")
-    if bool(link_url) == has_file:  # exactly one of file XOR link
-        raise HTTPException(status_code=422, detail="file_or_link_required")
+    if prompt_text and len(prompt_text) > MAX_PROMPT:
+        raise HTTPException(status_code=422, detail="invalid_prompt")
+    # A post needs *something* to share. The original rule was file XOR link;
+    # a shared prompt or agent brief is a third kind of content, and it may
+    # legitimately travel with a link to where the agent lives.
+    if not (link_url or has_file or (prompt_text and prompt_text.strip())):
+        raise HTTPException(status_code=422, detail="content_required")
     if link_url and not link_url.startswith("https://"):
         raise HTTPException(status_code=422, detail="link_must_be_https")
     cat = db.get(Category, uuid.UUID(category_id))
@@ -234,7 +242,11 @@ def _enqueue_item(db: Session, item: BoardItem) -> None:
         visibility="global" if item.scope == "global" else "municipality",
         storage_key=item.storage_key,
         ext=ext,
-        text_content=item.description or "",
+        # The prompt is the substance of a shared-prompt post, so it is what
+        # makes the post findable — not just its description.
+        text_content="\n\n".join(
+            part for part in (item.description, item.prompt_text) if part
+        ),
         title=item.title,
         municipality_id=item.municipality_id,
     )
@@ -247,6 +259,7 @@ async def create_item(
     destination: str = Form(...),
     description: str | None = Form(default=None),
     link_url: str | None = Form(default=None),
+    prompt_text: str | None = Form(default=None),
     municipality_id: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     user: User = Depends(get_current_user),
@@ -255,7 +268,7 @@ async def create_item(
     content = await file.read() if file else None
     _validate_common(
         db, title=title, description=description, category_id=category_id,
-        link_url=link_url, has_file=content is not None,
+        link_url=link_url, has_file=content is not None, prompt_text=prompt_text,
     )
     scope, muni_id = _resolve_scope(user, destination, municipality_id)
 
@@ -267,12 +280,16 @@ async def create_item(
         municipality_id=muni_id,
         author_id=user.id,
         link_url=link_url or None,
+        prompt_text=(prompt_text or "").strip() or None,
     )
     db.add(item)
     db.flush()
     if content is not None and file is not None:
         filename = file.filename or "file"
-        ext, content_type = validate_upload(filename, content, file.content_type or "")
+        # The board is the sharing surface: any type a colleague might need.
+        ext, content_type = validate_upload(
+            filename, content, file.content_type or "", allow_any=True
+        )
         item.filename = filename
         item.size_bytes = len(content)
         item.content_type = content_type
@@ -307,7 +324,10 @@ def get_item(
     return BoardItemDetail(
         **base.model_dump(),
         download_url=(
-            get_storage().download_url(item.storage_key, item.filename or "file")
+            get_storage().download_url(
+                item.storage_key, item.filename or "file",
+                content_type=item.content_type,
+            )
             if item.storage_key
             else None
         ),

@@ -23,7 +23,12 @@ class ExtractionError(Exception):
     pass
 
 
+IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "webp", "gif", "bmp", "tiff", "tif"}
+TEXT_EXTENSIONS = {"txt", "csv", "md", "markdown", "json", "yaml", "yml"}
+
+
 def extract_text(content: bytes, ext: str) -> str:
+    ext = (ext or "").lower()
     try:
         if ext == "pdf":
             return _pdf(content)
@@ -33,6 +38,10 @@ def extract_text(content: bytes, ext: str) -> str:
             return _pptx(content)
         if ext == "xlsx":
             return _xlsx(content)
+        if ext in IMAGE_EXTENSIONS:
+            return _image(content)
+        if ext in TEXT_EXTENSIONS:
+            return _plain(content)
     except ExtractionError:
         raise
     except Exception as e:
@@ -55,6 +64,40 @@ def _pdf(content: bytes) -> str:
         if len(scanned.strip()) > len(text.strip()):
             return scanned
     return text
+
+
+def _image(content: bytes) -> str:
+    """Read the words in a picture.
+
+    A screenshot of a circular or a photographed notice is a real way people
+    share information, and without this the assistant sees only the filename.
+    Returns empty rather than raising when OCR is unavailable — an unreadable
+    image is still a valid attachment.
+    """
+    try:
+        import io as _io
+
+        import pytesseract
+        from PIL import Image
+    except ImportError:
+        log.info("image OCR skipped: pytesseract/Pillow not installed")
+        return ""
+    try:
+        with Image.open(_io.BytesIO(content)) as image:
+            return pytesseract.image_to_string(image, lang=OCR_LANGUAGES)
+    except Exception as e:  # noqa: BLE001
+        log.warning("image OCR failed: %s", e)
+        return ""
+
+
+def _plain(content: bytes) -> str:
+    """Plain text, CSV, Markdown. Tries UTF-8 first, then Hebrew's legacy encoding."""
+    for encoding in ("utf-8-sig", "utf-8", "cp1255", "iso-8859-8"):
+        try:
+            return content.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    return content.decode("utf-8", errors="replace")
 
 
 def ocr_available() -> bool:

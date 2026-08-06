@@ -93,7 +93,9 @@ def _file_out(db: Session, f: DepartmentFile, user: User) -> DeptFileOut:
         size_bytes=f.size_bytes,
         status=f.status,
         uploader=_author(db, f.uploader_id),
-        download_url=get_storage().download_url(f.storage_key, f.filename),
+        download_url=get_storage().download_url(
+            f.storage_key, f.filename, content_type=f.content_type
+        ),
         can_delete=can_delete,
         created_at=f.created_at,
     )

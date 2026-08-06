@@ -18,6 +18,7 @@ from app.rag.embeddings import get_embedding_provider
 from app.rag.extract import extract_text
 from app.rag.graph import index_chunk
 from app.services.storage import get_storage
+from app.services.uploads import is_extractable
 
 log = logging.getLogger(__name__)
 
@@ -86,9 +87,20 @@ def _process(db: Session, job: IngestionJob) -> None:
     payload = job.payload
     if payload.get("storage_key"):
         content = get_storage().open(payload["storage_key"])
-        txt = extract_text(content, payload["ext"])
+        if is_extractable(payload.get("ext")):
+            txt = extract_text(content, payload["ext"])
+        else:
+            # Any file type may be uploaded, and most of them hold no text we can
+            # read. That is not a failure: the post keeps its title and
+            # description, and the file is still there to download. Marking it
+            # 'not indexable' would be technically true and practically useless.
+            log.info(
+                "no text extractor for .%s; indexing title and description only",
+                payload.get("ext"),
+            )
+            txt = ""
         if payload.get("text"):
-            txt = payload["text"] + "\n\n" + txt
+            txt = payload["text"] + "\n\n" + txt if txt else payload["text"]
     else:
         txt = payload.get("text") or ""
     chunks = chunk_text(txt, title=payload.get("title"))

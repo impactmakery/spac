@@ -19,6 +19,7 @@ import {
   toggleLike,
 } from "@/app/[locale]/(app)/board-actions";
 import { CategoryChip } from "@/components/board/item-card";
+import { PromptBlock } from "@/components/board/prompt-block";
 import { Dialog } from "@/components/dialog";
 import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -148,6 +149,12 @@ export function ItemClient({
         <h1 className="mt-3 text-2xl font-bold text-foreground">{item.title}</h1>
         {item.description && (
           <p className="mt-2 whitespace-pre-wrap text-foreground">{item.description}</p>
+        )}
+
+        {item.prompt_text && (
+          <div className="mt-4">
+            <PromptBlock text={item.prompt_text} />
+          </div>
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
