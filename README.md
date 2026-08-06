@@ -12,6 +12,12 @@ Bilingual Hebrew/English with full RTL support.
 - `api/` — FastAPI backend, ingestion worker, and cron jobs
 - `docker-compose.yml` — local PostgreSQL 16 with pgvector
 
+| Document | For |
+|---|---|
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | why the system is shaped this way, before changing it |
+| [`RUNBOOK.md`](RUNBOOK.md) | deploying, rotating keys, and diagnosing the common failures |
+| [`ADMIN-GUIDE.he.md`](ADMIN-GUIDE.he.md) | מדריך למנהל רשות — for the people who run a municipality |
+
 Requirements documents are held outside this repository.
 
 ## Architecture
@@ -72,6 +78,7 @@ opt in to the live RAG evaluation.
    pip install -r requirements.txt
    alembic upgrade head
    python scripts/seed.py                 # first system admin
+   python scripts/seed_demo.py --index    # optional: demo municipalities + content
    uvicorn app.main:app --reload --port 8001
    ```
 4. Ingestion worker (separate terminal): `cd api && python -m app.worker`

@@ -276,3 +276,32 @@ def test_hebrew_lexical_hit_still_obeys_permissions(db, world):
     [unrelated] = get_embedding_provider().embed(["completely different english text"])
     assert retrieve(db, query_embedding=unrelated, user=world["member"],
                     query_text="מכרז 2026/99 סודי") == []
+
+
+def test_municipality_admin_does_not_retrieve_non_member_department_content(db, world):
+    """Deliberate asymmetry from the scope appendix: a municipality admin can
+    BROWSE any department area in their municipality, but department content is
+    "retrievable by the assistant for members only". Widening the predicate to
+    include an admin's whole municipality is the tempting wrong fix."""
+    from app.core.security import hash_password
+    from app.models import User
+
+    admin = User(
+        email="muni.admin@x.org", role="municipality_admin", municipality=world["m1"],
+        status="active", password_hash=hash_password("retrieval-pass-1"),
+    )
+    db.add(admin)
+    db.commit()
+
+    text = "Welfare intake procedure for the municipality admin case"
+    add_chunk(
+        db, text=text, visibility="department",
+        municipality=world["m1"], department=world["d1"],
+    )
+    # same municipality, but not a member of that department
+    assert retrieve_for(db, admin, text) == []
+
+    # municipality-wide content is still theirs
+    announcement = "City One municipality wide announcement"
+    add_chunk(db, text=announcement, visibility="municipality", municipality=world["m1"])
+    assert [h.content for h in retrieve_for(db, admin, announcement)] == [announcement]
