@@ -374,3 +374,75 @@ def test_reranking_can_be_turned_off(db, world):
     plain = retrieve(db, query_embedding=vec, user=world["member"], query_text=q,
                      rerank_results=False)
     assert plain == sorted(plain, key=lambda h: (-h.score, -h.similarity))
+
+
+# --- graph as a third retrieval arm ------------------------------------------
+
+
+def _graph_chunk(db, *, text, visibility, municipality=None, department=None):
+    """A chunk stored and indexed into the graph, as ingestion does."""
+    from app.rag.graph import index_chunk
+
+    chunk = add_chunk(db, text=text, visibility=visibility,
+                      municipality=municipality, department=department)
+    index_chunk(db, chunk_id=chunk.id, content=text, visibility=visibility,
+                municipality_id=chunk.municipality_id,
+                department_id=chunk.department_id)
+    db.commit()
+    return chunk
+
+
+def test_graph_arm_surfaces_a_passage_the_other_arms_miss(db, world):
+    """The case that justifies the graph: the answer lives in a document that
+    shares no vocabulary with the question, reachable only through an entity."""
+    _graph_chunk(db, text="The Intake Programme requires form 9F", visibility="global")
+    bridge = _graph_chunk(
+        db, text="Budget Committee approves the Intake Programme", visibility="global",
+    )
+    hits = retrieve_for(db, world["member"], "Budget Committee")
+    assert bridge.id in {h.id for h in hits}
+    assert any(h.from_graph for h in hits), "the graph arm contributed nothing"
+
+
+def test_graph_arm_cannot_widen_the_permission_boundary(db, world):
+    """The third arm is a third way in, so it is a third way to leak. It must
+    obey the same boundary as the other two."""
+    secret = _graph_chunk(
+        db, text="Budget Committee approves the Confidential Staffing Plan",
+        visibility="department", municipality=world["m1"], department=world["d1b"],
+    )
+    _graph_chunk(db, text="Budget Committee meets in November", visibility="global")
+
+    hits = retrieve_for(db, world["member"], "Budget Committee")
+    assert secret.id not in {h.id for h in hits}
+    assert all(h.visibility == "global" for h in hits)
+
+    # its own department still reaches it
+    assert secret.id in {h.id for h in retrieve_for(db, world["sibling"], "Budget Committee")}
+
+
+def test_graph_can_be_turned_off(db, world):
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+
+    _graph_chunk(db, text="Budget Committee approves the Intake Programme", visibility="global")
+    q = "Budget Committee"
+    [vec] = get_embedding_provider().embed([q])
+    hits = retrieve(db, query_embedding=vec, user=world["member"], query_text=q,
+                    use_graph=False)
+    assert all(not h.from_graph for h in hits)
+
+
+def test_a_traversal_failure_does_not_take_the_answer_down(db, world, monkeypatch):
+    """The graph is an enhancement over search that already works."""
+    from app.rag import retrieval as retrieval_mod
+
+    text = "Waste collection operates every Tuesday and Friday"
+    add_chunk(db, text=text, visibility="global")
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("graph is down")
+
+    monkeypatch.setattr(retrieval_mod, "related_chunk_ids", boom)
+    hits = retrieve_for(db, world["member"], text)
+    assert hits and hits[0].content == text

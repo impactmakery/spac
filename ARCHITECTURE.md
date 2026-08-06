@@ -114,6 +114,42 @@ Postgres has no Hebrew stemmer. The `english` text-search configuration tokenise
 but does not stem it, so Hebrew exact-term matching works while Hebrew paraphrase is
 carried by the dense arm.
 
+### Retrieval — the third arm: graph traversal
+
+Dense and lexical both answer "which passage resembles this question". Neither
+answers "which department runs that programme" or "what does this regulation
+depend on" — questions whose answer is assembled from several documents that
+share an entity.
+
+Entities and relationships are extracted from each chunk at ingestion and stored
+in `graph_entities`, `graph_mentions` and `graph_relations`. A question's named
+entities seed a traversal of at most two hops, and the chunks that evidenced the
+edges crossed are fused in as a third arm, weighted below the other two —
+being *connected* to a question is weaker evidence than matching it.
+
+**The rule that must not be broken:** scope lives on the **mention** and the
+**relation**, never on the **entity**.
+
+An entity is only a name. `אגף הרווחה` may be mentioned in a public circular and
+in a confidential department file — two facts, different visibility. Scoping the
+entity would merge them, and a traversal starting from a permitted mention could
+then walk into a relationship the user must not see. Every edge therefore carries
+the visibility of the chunk that evidenced it, and the filter is re-applied **on
+every hop**, not once at the seed. `api/tests/test_graph.py` holds this in place.
+
+Deleting a chunk cascades to its mentions and relations, so a deleted document
+does not stay traversable — the same invariant the chunks table already has.
+
+Extraction is behind a protocol. The default is a deterministic pattern matcher:
+no API key, no cost, hermetic tests, and a rate-limited provider degrades the
+graph rather than breaking ingestion. **It is weak on Hebrew** — Hebrew has no
+capitalisation, so a run-of-words pattern swallows verbs, and few Hebrew
+relationships are extracted at all. An LLM extractor is the intended upgrade and
+the reason the protocol exists; it costs one model call per chunk at index time.
+
+Graph indexing and traversal both fail soft. The graph is an enhancement over
+search that already works, so neither may take an answer down with it.
+
 ### Generation
 
 Answers are grounded only in the retrieved chunks, streamed over SSE, with numbered
@@ -160,7 +196,8 @@ list so nobody has to rediscover it by diffing:
 |---|---|---|
 | Extraction via the `unstructured` library | explicit `pypdf` / `python-docx` / `python-pptx` / `openpyxl` | `unstructured` pulled in ~1.3 GB of transitive dependencies for four file types we parse directly; the image dropped from 1527 MB to 205 MB |
 | LangChain for RAG orchestration | plain code | see below |
-| Retrieval: cosine top-12, ≥0.35 | that, **plus** a lexical arm fused with RRF | cosine alone cannot find `form 4B` or `regulation 17.3`; the spec's threshold and top-12 are unchanged |
+| Retrieval: cosine top-12, ≥0.35 | that, **plus** a lexical arm and a graph-traversal arm fused with RRF, then re-ranked | cosine alone cannot find `form 4B` or `regulation 17.3`, and neither arm answers questions about connections between documents; the spec's threshold and top-12 are unchanged |
+| — | OCR for scanned PDFs | not in the appendix at all, but municipal archives are largely scanned paper, which would otherwise be silently unusable |
 | Chunking: 800 tokens / 150 overlap | that, cut at paragraph boundaries, title prefixed | same budget, better boundaries |
 | Empty retrieval → "not covered" | that, **except** greetings are answered conversationally first | "hello" returning "not covered" and landing in the unanswered-questions list is not the intent of the rule |
 | Nightly backups, 30-day retention | **not enabled yet** | not a plan limitation — Railway schedules backups per volume and no single schedule offers 30-day nightly retention; see `RUNBOOK.md` |

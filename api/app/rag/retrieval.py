@@ -9,6 +9,7 @@ The permission predicate is part of BOTH arms and of the final select. It is
 never a post-filter, and a new retrieval path must never become a way around it.
 """
 
+import logging
 import uuid
 from dataclasses import dataclass
 
@@ -16,13 +17,20 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models import User
+from app.rag.graph import related_chunk_ids
 from app.rag.reranking import rerank as rerank_hits
+
+log = logging.getLogger(__name__)
 
 TOP_K = 12
 MIN_SIMILARITY = 0.35
 CANDIDATES = 40  # per arm, before fusion
 RRF_K = 60  # standard damping: rank 1 scores 1/61, rank 2 1/62, …
 RERANK_POOL = 30  # fused rows handed to the reranker, which then picks TOP_K
+# Deliberately below 1.0: being *connected* to the question is weaker evidence
+# than matching it. The graph should break ties and surface a passage the other
+# arms missed entirely, not outvote a direct semantic match.
+GRAPH_WEIGHT = 0.5
 
 # The predicate is written once and interpolated into both arms so they can
 # never drift apart.
@@ -88,19 +96,30 @@ lexical AS (
     ORDER BY ts_rank_cd(c.search, q.tsq) DESC
     LIMIT :candidates
 ),
+graph AS (
+    -- Chunk ids the graph traversal reached, already permission-filtered on
+    -- every hop by the caller. Ranked by arrival order: traversal has no
+    -- relevance score of its own, only "this is connected to what you asked".
+    SELECT id, ROW_NUMBER() OVER () AS rank
+    FROM unnest(CAST(:graph_ids AS uuid[])) AS id
+),
 fused AS (
-    SELECT COALESCE(dense.id, lexical.id) AS id,
+    SELECT COALESCE(dense.id, lexical.id, graph.id) AS id,
            COALESCE(1.0 / (:rrf_k + dense.rank), 0)
-             + COALESCE(1.0 / (:rrf_k + lexical.rank), 0) AS score,
+             + COALESCE(1.0 / (:rrf_k + lexical.rank), 0)
+             + COALESCE(:graph_weight / (:rrf_k + graph.rank), 0) AS score,
            COALESCE(dense.similarity, 0) AS similarity,
            dense.id IS NOT NULL AS from_dense,
-           lexical.id IS NOT NULL AS from_lexical
+           lexical.id IS NOT NULL AS from_lexical,
+           graph.id IS NOT NULL AS from_graph
     FROM dense
     FULL OUTER JOIN lexical ON dense.id = lexical.id
+    FULL OUTER JOIN graph ON graph.id = COALESCE(dense.id, lexical.id)
 )
 SELECT c.id, c.source_type, c.source_id, c.content, c.visibility,
        c.municipality_id, c.department_id,
-       fused.similarity, fused.score, fused.from_dense, fused.from_lexical
+       fused.similarity, fused.score, fused.from_dense, fused.from_lexical,
+       fused.from_graph
 FROM fused
 JOIN chunks c ON c.id = fused.id
 LEFT JOIN municipalities m ON m.id = c.municipality_id
@@ -124,6 +143,7 @@ class RetrievedChunk:
     score: float = 0.0
     from_dense: bool = True
     from_lexical: bool = False
+    from_graph: bool = False
 
 
 def retrieve(
@@ -135,7 +155,21 @@ def retrieve(
     limit: int = TOP_K,
     min_similarity: float = MIN_SIMILARITY,
     rerank_results: bool = True,
+    use_graph: bool = True,
 ) -> list[RetrievedChunk]:
+    # Traversal runs first and separately: it is a graph walk, not a scan, and
+    # its own SQL re-applies this user's permissions at every hop. What comes
+    # back is a list of chunk ids this user may already see, so feeding it into
+    # the query below can only reorder — never widen.
+    graph_ids: list[uuid.UUID] = []
+    if use_graph and query_text:
+        try:
+            graph_ids = related_chunk_ids(db, query_text=query_text, user=user)
+        except Exception:  # noqa: BLE001
+            # The graph is an enhancement over search that already works; a
+            # traversal failure must not take the whole answer down with it.
+            log.exception("graph traversal failed; answering without it")
+
     params = {
         "query_embedding": "[" + ",".join(str(x) for x in query_embedding) + "]",
         "query_text": query_text,
@@ -147,6 +181,8 @@ def retrieve(
         "min_similarity": min_similarity,
         "candidates": CANDIDATES,
         "rrf_k": RRF_K,
+        "graph_ids": [str(i) for i in graph_ids],
+        "graph_weight": GRAPH_WEIGHT,
         # Over-fetch so the reranker has something to choose between. Ranking
         # exactly `limit` rows and then reordering them changes nothing.
         "top_k": max(limit, RERANK_POOL) if rerank_results else limit,
@@ -165,6 +201,7 @@ def retrieve(
             score=float(r["score"]),
             from_dense=bool(r["from_dense"]),
             from_lexical=bool(r["from_lexical"]),
+            from_graph=bool(r["from_graph"]),
         )
         for r in rows
     ]
