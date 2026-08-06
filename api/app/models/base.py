@@ -9,6 +9,7 @@ from sqlalchemy import (
     Computed,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -556,6 +557,108 @@ class AuditLog(Base):
     entity_id: Mapped[str | None] = mapped_column(Text)
     before: Mapped[dict | None] = mapped_column(JSONB)
     after: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+# --- knowledge graph ---------------------------------------------------------
+# Entities and relationships extracted from chunks, for traversal that answers
+# "who is connected to what" rather than "which passage looks similar".
+#
+# The permission columns live on the MENTION and the RELATION, never on the
+# entity. An entity is just a name — "Department of Welfare" may be mentioned in
+# a global circular and in a confidential department file, and those two facts
+# carry different visibility. Putting the scope on the entity would collapse them
+# and let a traversal surface a relationship the user cannot see.
+
+
+class GraphEntity(Base):
+    """A canonical thing: a person, a body, a place, a regulation."""
+
+    __tablename__ = "graph_entities"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('person','organization','location','regulation','date','other')",
+            name="ck_graph_entities_kind",
+        ),
+        Index("ix_graph_entities_normalized", "normalized"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    # lowercased, whitespace-collapsed: the key two spellings collide on
+    normalized: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="other")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class GraphMention(Base):
+    """An entity occurring in one chunk. Carries that chunk's visibility."""
+
+    __tablename__ = "graph_mentions"
+    __table_args__ = (
+        CheckConstraint(
+            "visibility IN ('global','municipality','department')",
+            name="ck_graph_mentions_visibility",
+        ),
+        Index("ix_graph_mentions_entity", "entity_id"),
+        Index("ix_graph_mentions_chunk", "chunk_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    entity_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("graph_entities.id", ondelete="CASCADE"), nullable=False
+    )
+    # Deleting a document deletes its chunks, which must delete their graph rows
+    # in the same transaction — otherwise a deleted file stays traversable.
+    chunk_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("chunks.id", ondelete="CASCADE"), nullable=False
+    )
+    municipality_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("municipalities.id", ondelete="CASCADE")
+    )
+    department_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE")
+    )
+    visibility: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class GraphRelation(Base):
+    """subject --predicate--> object, evidenced by one chunk whose scope it takes."""
+
+    __tablename__ = "graph_relations"
+    __table_args__ = (
+        CheckConstraint(
+            "visibility IN ('global','municipality','department')",
+            name="ck_graph_relations_visibility",
+        ),
+        Index("ix_graph_relations_subject", "subject_id"),
+        Index("ix_graph_relations_object", "object_id"),
+        Index("ix_graph_relations_chunk", "chunk_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subject_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("graph_entities.id", ondelete="CASCADE"), nullable=False
+    )
+    object_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("graph_entities.id", ondelete="CASCADE"), nullable=False
+    )
+    predicate: Mapped[str] = mapped_column(Text, nullable=False)
+    chunk_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("chunks.id", ondelete="CASCADE"), nullable=False
+    )
+    municipality_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("municipalities.id", ondelete="CASCADE")
+    )
+    department_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("departments.id", ondelete="CASCADE")
+    )
+    visibility: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, server_default="1.0")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

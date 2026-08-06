@@ -16,6 +16,7 @@ from app.models import BoardItem, Chunk, DepartmentFile, IngestionJob, KbDocumen
 from app.rag.chunking import chunk_text
 from app.rag.embeddings import get_embedding_provider
 from app.rag.extract import extract_text
+from app.rag.graph import index_chunk
 from app.services.storage import get_storage
 
 log = logging.getLogger(__name__)
@@ -100,18 +101,34 @@ def _process(db: Session, job: IngestionJob) -> None:
     )
     muni = payload.get("municipality_id")
     dept = payload.get("department_id")
+    municipality_id = uuid.UUID(muni) if muni else None
+    department_id = uuid.UUID(dept) if dept else None
     for content_piece, vector in zip(chunks, embeddings, strict=True):
-        db.add(
-            Chunk(
-                source_type=job.source_type,
-                source_id=job.source_id,
-                municipality_id=uuid.UUID(muni) if muni else None,
-                department_id=uuid.UUID(dept) if dept else None,
-                visibility=payload["visibility"],
-                content=content_piece,
-                embedding=vector,
-            )
+        chunk = Chunk(
+            source_type=job.source_type,
+            source_id=job.source_id,
+            municipality_id=municipality_id,
+            department_id=department_id,
+            visibility=payload["visibility"],
+            content=content_piece,
+            embedding=vector,
         )
+        db.add(chunk)
+        db.flush()  # the graph rows reference chunk.id
+        try:
+            index_chunk(
+                db,
+                chunk_id=chunk.id,
+                content=content_piece,
+                visibility=payload["visibility"],
+                municipality_id=municipality_id,
+                department_id=department_id,
+            )
+        except Exception as e:  # noqa: BLE001
+            # The graph is an enhancement over search that already works. A bad
+            # extraction must not cost the document its embedding, so it is
+            # logged and the chunk is indexed without graph edges.
+            log.warning("graph indexing failed for chunk %s: %s", chunk.id, e)
 
 
 def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
