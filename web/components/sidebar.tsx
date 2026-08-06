@@ -86,8 +86,11 @@ function SidebarFooter({
       </Link>
       <div className="mt-3 flex items-center justify-between">
         <LanguageToggle language={language} />
+        {/* `redirectTo`, not v4's `callbackUrl`: next-auth v5 ignores the old
+            option and falls back to its configured base URL, so a deployment
+            whose NEXTAUTH_URL still says localhost sends the user there. */}
         <button
-          onClick={() => signOut({ callbackUrl: "/" })}
+          onClick={() => signOut({ redirectTo: "/" })}
           className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <LogOut className="size-4" />

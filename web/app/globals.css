@@ -78,6 +78,22 @@ body {
   font-family: var(--font-heebo), ui-sans-serif, system-ui, sans-serif;
 }
 
+/* Tailwind v4's preflight leaves buttons on the browser default `cursor: default`,
+   which makes every control in the app feel inert on hover. Restore the pointer
+   once, here, rather than remembering `cursor-pointer` on each of them. Disabled
+   controls keep the not-allowed cursor. */
+button:not(:disabled),
+[role="button"]:not(:disabled),
+label[for],
+summary {
+  cursor: pointer;
+}
+
+button:disabled,
+[role="button"][aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
 /* Subtle decorative wash behind app content, as in the prototype */
 .app-gradient {
   background:
