@@ -20,15 +20,21 @@ Both Railway services run in region `ams` (Amsterdam) — the users are in Israe
 
 Push to `main`. Vercel builds the web app; Railway rebuilds the API and worker.
 
-Migrations are **not** automatic. After a deploy that includes a migration:
+**Migrations run automatically.** The API container's start command is
+`alembic upgrade head && uvicorn …`, so the schema is upgraded before the new code
+serves its first request and a deploy never serves an out-of-date schema. Alembic is
+idempotent, so a restart or a second instance is harmless.
+
+To run one by hand anyway (a failed boot, or a migration you want to apply ahead of a
+deploy):
 
 ```
 railway run --service api alembic upgrade head
 ```
 
-Run migrations before the code that depends on them is serving traffic. Every migration
-must be additive-then-backfill if it touches a column already in use, because the old
-and new code overlap during a rollout.
+Every migration must still be additive-then-backfill if it touches a column already in
+use: the worker and any still-draining API instance run the old code for a few seconds
+during a rollout.
 
 ## Scheduled jobs
 
