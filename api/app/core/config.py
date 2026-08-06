@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     openrouter_site_url: str = ""
     openrouter_app_name: str = "Tomorrow Agent Hub"
 
+    # "pattern" (default, free, offline) or "llm". The LLM extractor is what
+    # makes the knowledge graph useful on Hebrew documents, at the cost of one
+    # model call per chunk when a document is indexed.
+    graph_extractor: str = "pattern"
+
     # A key and its base URL are one credential pair: never authenticate against
     # one provider's endpoint with another provider's key. So each resolver picks
     # the URL belonging to whichever key it selected.

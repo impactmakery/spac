@@ -228,3 +228,106 @@ def test_deleting_a_chunk_removes_its_graph_edges(db, world):
 
     assert db.query(GraphMention).filter_by(chunk_id=chunk.id).count() == 0
     assert db.query(GraphRelation).filter_by(chunk_id=chunk.id).count() == 0
+
+
+# --- LLM extractor -----------------------------------------------------------
+# It runs against free-tier models that rate-limit, so its failure modes matter
+# as much as its happy path: a thin graph is acceptable, a failed ingestion is not.
+
+
+class _StubLlm:
+    """Stands in for the model, returning whatever a real one might."""
+
+    def __init__(self, content):
+        self.content = content
+        self.calls = 0
+
+    def __call__(self, body):
+        self.calls += 1
+        from app.rag.graph import LlmExtractor
+
+        return LlmExtractor._parse(self.content)
+
+
+def test_llm_extractor_parses_hebrew_entities_and_relations():
+    from app.rag.graph import LlmExtractor
+
+    extraction = LlmExtractor._parse('''
+    {"entities": [{"name": "ועדת התקציב", "kind": "organization"},
+                  {"name": "אגף הרווחה", "kind": "organization"},
+                  {"name": "תוכנית רב-שנתית", "kind": "other"}],
+     "relations": [{"subject": "ועדת התקציב", "predicate": "מאשרת", "object": "תוכנית רב-שנתית"},
+                   {"subject": "תוכנית רב-שנתית", "predicate": "שייכת ל", "object": "אגף הרווחה"}]}
+    ''')
+    assert {e.name for e in extraction.entities} == {
+        "ועדת התקציב", "אגף הרווחה", "תוכנית רב-שנתית"
+    }
+    # the relationships the pattern extractor cannot find in Hebrew
+    assert len(extraction.relations) == 2
+    assert ("ועדת התקציב", "מאשרת") == (
+        extraction.relations[0].subject, extraction.relations[0].predicate
+    )
+
+
+def test_llm_extractor_survives_a_fenced_or_chatty_response():
+    """Models wrap JSON in fences and preamble however firmly you ask them not to."""
+    from app.rag.graph import LlmExtractor
+
+    extraction = LlmExtractor._parse(
+        'Sure! Here is the graph:\n```json\n'
+        '{"entities": [{"name": "Budget Committee", "kind": "organization"}], "relations": []}\n'
+        '```\nLet me know if you need anything else.'
+    )
+    assert [e.name for e in extraction.entities] == ["Budget Committee"]
+
+
+def test_llm_extractor_drops_relations_whose_ends_were_never_declared():
+    """A dangling relation would create an edge to an entity that does not
+    exist — a connection the document never stated."""
+    from app.rag.graph import LlmExtractor
+
+    extraction = LlmExtractor._parse('''
+    {"entities": [{"name": "אגף הרווחה", "kind": "organization"}],
+     "relations": [{"subject": "אגף הרווחה", "predicate": "מנהל", "object": "משהו שלא הוזכר"}]}
+    ''')
+    assert extraction.relations == []
+
+
+def test_llm_extractor_falls_back_when_the_provider_fails():
+    """A rate-limited provider must thin the graph, never fail ingestion."""
+    from app.rag.graph import LlmExtractor
+
+    extractor = LlmExtractor()
+    extractor._call = lambda body: (_ for _ in ()).throw(RuntimeError("429 rate limited"))
+
+    extraction = extractor.extract("Budget Committee approves the Capital Plan")
+    # the pattern extractor still finds something rather than raising
+    assert any("budget committee" == e.normalized for e in extraction.entities)
+
+
+def test_llm_extractor_falls_back_when_no_key_is_configured():
+    from app.rag.graph import LlmExtractor
+
+    extractor = LlmExtractor()
+    extractor._call = lambda body: None
+    extraction = extractor.extract("Budget Committee approves the Capital Plan")
+    assert extraction.entities
+
+
+def test_malformed_json_falls_back_rather_than_raising():
+    from app.rag.graph import LlmExtractor
+
+    extractor = LlmExtractor()
+    extractor._call = lambda body: LlmExtractor._parse("this is not json at all")
+    assert extractor.extract("Budget Committee approves the Capital Plan").entities
+
+
+def test_pattern_extractor_is_the_default(monkeypatch):
+    """Nobody should start paying per chunk by accident."""
+    from app.rag.graph import PatternExtractor, get_extractor, set_extractor
+
+    set_extractor(None)  # re-read configuration
+    try:
+        assert isinstance(get_extractor(), PatternExtractor)
+    finally:
+        set_extractor(None)

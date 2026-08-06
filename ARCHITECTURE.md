@@ -140,12 +140,28 @@ every hop**, not once at the seed. `api/tests/test_graph.py` holds this in place
 Deleting a chunk cascades to its mentions and relations, so a deleted document
 does not stay traversable — the same invariant the chunks table already has.
 
-Extraction is behind a protocol. The default is a deterministic pattern matcher:
-no API key, no cost, hermetic tests, and a rate-limited provider degrades the
-graph rather than breaking ingestion. **It is weak on Hebrew** — Hebrew has no
-capitalisation, so a run-of-words pattern swallows verbs, and few Hebrew
-relationships are extracted at all. An LLM extractor is the intended upgrade and
-the reason the protocol exists; it costs one model call per chunk at index time.
+Extraction is behind a protocol with two implementations, chosen by
+`GRAPH_EXTRACTOR`:
+
+- `pattern` (default) — deterministic, offline, free. No API key, hermetic
+  tests, and a rate-limited provider cannot break ingestion.
+- `llm` — one model call per chunk at index time, falling back to `pattern` on
+  any failure.
+
+**On Hebrew the difference is not marginal.** Measured on one Hebrew municipal
+paragraph:
+
+| | Entities | Relations |
+|---|---|---|
+| `pattern` | 12, many fusing nouns to verbs (`נהריה אישרה`) | **0** |
+| `llm` | 13, clean and typed | **9** |
+
+Hebrew has no capitalisation to anchor on, so the pattern matcher swallows verbs
+and finds no relationships at all — and a graph with no edges has nothing to
+traverse, which makes the third retrieval arm inert. For a Hebrew-first corpus,
+`GRAPH_EXTRACTOR=llm` is what makes the graph real rather than decorative.
+
+The default stays `pattern` so nobody starts paying per chunk by accident.
 
 Graph indexing and traversal both fail soft. The graph is an enhancement over
 search that already works, so neither may take an answer down with it.

@@ -19,6 +19,7 @@ re-applies the same predicate the retrieval SQL uses — on every hop, not once 
 the start.
 """
 
+import logging
 import re
 import uuid
 from dataclasses import dataclass, field
@@ -28,6 +29,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models import User
+
+log = logging.getLogger(__name__)
 
 # Hops beyond two rarely add signal and multiply the rows scanned; two is enough
 # for "A relates to B, and B relates to the thing you asked about".
@@ -192,14 +195,161 @@ class PatternExtractor:
         return Extraction(entities=list(seen.values()), relations=relations)
 
 
-_extractor: Extractor = PatternExtractor()
+EXTRACTION_PROMPT = """You extract a knowledge graph from municipal documents.
+
+Return ONLY a JSON object, no prose and no code fence:
+{"entities": [{"name": "...", "kind": "..."}],
+ "relations": [{"subject": "...", "predicate": "...", "object": "..."}]}
+
+kind is one of: person, organization, location, regulation, date, other.
+
+Rules:
+- Keep names exactly as they appear in the text. Do not translate them. A Hebrew
+  document must yield Hebrew entity names.
+- Only extract relationships the text actually states. Never infer, never use
+  outside knowledge. A relationship you invent becomes an answer the document
+  does not support.
+- Every subject and object of a relation must also appear in entities.
+- Prefer specific named things (אגף הרווחה, ועדת התקציב, תקנה 17.3) over generic
+  nouns (the department, the committee, the regulation).
+- Predicates should be short verb phrases in the document's own language.
+- If the text names nothing worth linking, return empty lists."""
+
+MAX_EXTRACTION_CHARS = 6000
+
+
+class LlmExtractor:
+    """Reads the chunk and reports what is named and how it connects.
+
+    This is what makes the graph useful in Hebrew. Pattern matching leans on
+    capitalisation, which Hebrew does not have, so it finds some entities and
+    almost no relationships — and relationships are the whole point of a graph.
+
+    Costs one model call per chunk at index time, paid once per document rather
+    than once per question. Falls back to the pattern extractor on any failure:
+    a rate-limited provider should thin the graph, never fail an ingestion job.
+    """
+
+    def __init__(self, fallback: Extractor | None = None) -> None:
+        self._fallback = fallback or PatternExtractor()
+
+    def extract(self, body: str) -> Extraction:
+        try:
+            parsed = self._call(body[:MAX_EXTRACTION_CHARS])
+        except Exception as e:  # noqa: BLE001
+            log.warning("LLM extraction failed, falling back to patterns: %s", e)
+            return self._fallback.extract(body)
+        if parsed is None:
+            return self._fallback.extract(body)
+        return parsed
+
+    def _call(self, body: str) -> Extraction | None:
+        from openai import OpenAI
+
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        if not settings.resolved_llm_key:
+            return None
+
+        headers = {}
+        if settings.resolved_llm_base_url and "openrouter" in settings.resolved_llm_base_url:
+            headers = {
+                "HTTP-Referer": settings.openrouter_site_url or settings.nextauth_url,
+                "X-Title": settings.openrouter_app_name,
+            }
+        client = OpenAI(
+            api_key=settings.resolved_llm_key,
+            base_url=settings.resolved_llm_base_url,
+            default_headers=headers or None,
+        )
+
+        last_error: Exception | None = None
+        for model in settings.llm_model_chain:
+            try:
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": EXTRACTION_PROMPT},
+                        {"role": "user", "content": body},
+                    ],
+                    temperature=0,  # extraction is not a creative task
+                )
+                content = (response.choices[0].message.content or "").strip()
+                if content:
+                    return self._parse(content)
+            except Exception as e:  # noqa: BLE001 — try the next model in the chain
+                last_error = e
+                continue
+        if last_error:
+            raise last_error
+        return None
+
+    @staticmethod
+    def _parse(content: str) -> Extraction:
+        import json
+        import re as _re
+
+        # Models wrap JSON in fences or prose no matter how firmly you ask.
+        fenced = _re.search(r"```(?:json)?\s*(.+?)```", content, _re.DOTALL)
+        if fenced:
+            content = fenced.group(1)
+        start, end = content.find("{"), content.rfind("}")
+        if start == -1 or end == -1:
+            raise ValueError("no JSON object in extraction response")
+        data = json.loads(content[start : end + 1])
+
+        entities = []
+        for item in data.get("entities", []):
+            name = str(item.get("name", "")).strip()
+            if not name:
+                continue
+            kind = str(item.get("kind", "other")).lower()
+            entities.append(Entity(name=name, kind=kind if kind in KINDS else "other"))
+
+        known = {e.normalized for e in entities}
+        relations = []
+        for item in data.get("relations", []):
+            subject = str(item.get("subject", "")).strip()
+            predicate = str(item.get("predicate", "")).strip()
+            obj = str(item.get("object", "")).strip()
+            if not (subject and predicate and obj):
+                continue
+            # A relation whose ends were not also declared as entities would
+            # dangle; the model is told to declare them, and this enforces it.
+            if normalize(subject) not in known or normalize(obj) not in known:
+                continue
+            if normalize(subject) == normalize(obj):
+                continue
+            relations.append(Relation(subject=subject, predicate=predicate, object=obj))
+
+        return Extraction(entities=entities, relations=relations)
+
+
+_extractor: Extractor | None = None
 
 
 def get_extractor() -> Extractor:
+    """The LLM extractor when a key and GRAPH_EXTRACTOR=llm are both present.
+
+    Off by default even with a key configured: it adds a model call per chunk,
+    and that is a cost decision the operator should make deliberately rather
+    than discover on a bill.
+    """
+    global _extractor
+    if _extractor is None:
+        from app.core.config import get_settings
+
+        settings = get_settings()
+        if settings.graph_extractor == "llm" and settings.resolved_llm_key:
+            _extractor = LlmExtractor()
+        else:
+            _extractor = PatternExtractor()
     return _extractor
 
 
-def set_extractor(extractor: Extractor) -> None:
+def set_extractor(extractor: Extractor | None) -> None:
+    """Override the extractor, or pass None to re-read the configuration."""
     global _extractor
     _extractor = extractor
 
