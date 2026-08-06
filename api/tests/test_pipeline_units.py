@@ -194,3 +194,97 @@ def test_short_document_stays_one_chunk():
 
     assert chunk_text("A short procedure note.") == ["A short procedure note."]
     assert chunk_text("   ") == []
+
+
+# ---------- OCR for scanned PDFs ----------
+
+
+def _image_pdf(text="Scanned municipal notice 2026", size=(1000, 260)) -> bytes:
+    """A PDF whose page is an image — exactly what a scanner produces."""
+    from PIL import Image, ImageDraw
+
+    img = Image.new("RGB", size, "white")
+    draw = ImageDraw.Draw(img)
+    draw.text((20, 100), text, fill="black")
+    buf = io.BytesIO()
+    img.save(buf, format="PDF")
+    return buf.getvalue()
+
+
+def test_scanned_pdf_has_no_text_layer():
+    """The premise: pypdf alone returns nothing for a scan, which is why these
+    files were being marked 'not indexable'."""
+    from pypdf import PdfReader
+
+    reader = PdfReader(io.BytesIO(_image_pdf()))
+    assert "".join(p.extract_text() or "" for p in reader.pages).strip() == ""
+
+
+def test_ocr_never_raises_when_tesseract_is_missing():
+    """OCR is a best-effort improvement on a document that already extracted to
+    nothing. A missing binary must not turn an empty document into a failed job."""
+    from app.rag.extract import _ocr_pdf, extract_text
+
+    assert isinstance(_ocr_pdf(_image_pdf()), str)
+    assert isinstance(extract_text(_image_pdf(), "pdf"), str)
+
+
+def test_ocr_is_not_attempted_on_a_pdf_that_has_real_text(monkeypatch):
+    from app.rag import extract as extract_mod
+
+    called = False
+
+    def spy(content):
+        nonlocal called
+        called = True
+        return ""
+
+    monkeypatch.setattr(extract_mod, "_ocr_pdf", spy)
+    text = extract_mod.extract_text(_text_pdf(), "pdf")
+    assert "Budget planning cycle" in text
+    assert not called, "a born-digital PDF must not pay the OCR cost"
+
+
+def test_failed_ocr_does_not_destroy_a_weak_text_layer(monkeypatch):
+    """A mixed document — a real report with scanned appendices — must keep its
+    text layer even when the OCR pass returns nothing."""
+    from app.rag import extract as extract_mod
+
+    monkeypatch.setattr(extract_mod, "MIN_CHARS_PER_PAGE", 10_000)  # force the attempt
+    monkeypatch.setattr(extract_mod, "_ocr_pdf", lambda content: "")
+    text = extract_mod.extract_text(_text_pdf(), "pdf")
+    assert "Budget planning cycle" in text
+
+
+def _text_pdf(line="Budget planning cycle begins in November for every municipality.") -> bytes:
+    """A born-digital PDF with a genuine text layer.
+
+    Assembled by hand rather than pulling in a PDF-authoring dependency for one
+    fixture; the xref offsets are computed so pypdf parses it normally.
+    """
+    stream = f"BT /F1 12 Tf 72 720 Td ({line}) Tj ET".encode()
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R "
+        b"/Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+
+    xref_at = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref_at}\n".encode()
+    )
+    out += b"%%EOF\n"
+    return bytes(out)

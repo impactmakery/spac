@@ -1,6 +1,22 @@
-"""Text extraction per format. Raises ExtractionError on unreadable files."""
+"""Text extraction per format. Raises ExtractionError on unreadable files.
+
+Municipal archives are full of scanned paper: a PDF whose pages are images with
+no text layer. Those extract to nothing and were previously marked
+'not indexable'. When a PDF yields too little text to be plausible, the pages are
+rasterised and run through Tesseract in Hebrew and English.
+"""
 
 import io
+import logging
+
+log = logging.getLogger(__name__)
+
+# A born-digital page carries far more than this; anything less means the text
+# layer is missing or decorative, and the real content is in the pixels.
+MIN_CHARS_PER_PAGE = 40
+OCR_MAX_PAGES = 40  # a 300-page scan would hold the worker for many minutes
+OCR_DPI = 200  # below ~150 Hebrew diacritics and small print start to fail
+OCR_LANGUAGES = "heb+eng"
 
 
 class ExtractionError(Exception):
@@ -28,7 +44,70 @@ def _pdf(content: bytes) -> str:
     from pypdf import PdfReader
 
     reader = PdfReader(io.BytesIO(content))
-    return "\n\n".join((page.extract_text() or "") for page in reader.pages)
+    pages = [(page.extract_text() or "") for page in reader.pages]
+    text = "\n\n".join(pages)
+
+    if pages and len(text.strip()) < MIN_CHARS_PER_PAGE * len(pages):
+        scanned = _ocr_pdf(content)
+        # Keep whichever is richer: a mixed document (a born-digital report with
+        # scanned appendices) should not lose its real text layer to a failed
+        # OCR pass, and a pure scan should not keep its empty one.
+        if len(scanned.strip()) > len(text.strip()):
+            return scanned
+    return text
+
+
+def ocr_available() -> bool:
+    """Whether both halves of the OCR path are installed: the Python bindings
+    and the Tesseract binary itself."""
+    try:
+        import pypdfium2  # noqa: F401
+        import pytesseract
+
+        pytesseract.get_tesseract_version()
+    except Exception:  # noqa: BLE001 — any failure means the path is unusable
+        return False
+    return True
+
+
+def _ocr_pdf(content: bytes) -> str:
+    """Rasterise each page and read it with Tesseract.
+
+    Deliberately never raises: OCR is a best-effort improvement on a document
+    that already extracted to nothing, so a missing binary or a corrupt page
+    must not turn a merely-empty document into a failed ingestion job.
+    """
+    try:
+        import pypdfium2 as pdfium
+        import pytesseract
+    except ImportError:
+        log.info("OCR skipped: pypdfium2/pytesseract not installed")
+        return ""
+
+    try:
+        pdf = pdfium.PdfDocument(io.BytesIO(content))
+    except Exception as e:  # noqa: BLE001
+        log.warning("OCR skipped: could not open PDF for rasterising: %s", e)
+        return ""
+
+    out: list[str] = []
+    try:
+        count = min(len(pdf), OCR_MAX_PAGES)
+        if len(pdf) > OCR_MAX_PAGES:
+            log.warning(
+                "OCR limited to the first %d of %d pages", OCR_MAX_PAGES, len(pdf)
+            )
+        for index in range(count):
+            try:
+                page = pdf[index]
+                image = page.render(scale=OCR_DPI / 72).to_pil()
+                out.append(pytesseract.image_to_string(image, lang=OCR_LANGUAGES))
+            except Exception as e:  # noqa: BLE001 — one bad page is not a failure
+                log.warning("OCR failed on page %d: %s", index + 1, e)
+    finally:
+        pdf.close()
+
+    return "\n\n".join(part for part in out if part.strip())
 
 
 def _docx(content: bytes) -> str:

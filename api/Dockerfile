@@ -8,6 +8,16 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
+# Tesseract reads scanned PDFs that carry no text layer. The Hebrew language
+# data is a separate package and the product is Hebrew-first, so both are
+# required; without heb.traineddata a scanned Hebrew page returns noise rather
+# than failing loudly.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        tesseract-ocr \
+        tesseract-ocr-heb \
+    && rm -rf /var/lib/apt/lists/*
+
 # Dependencies first so code changes don't invalidate the install layer.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
