@@ -126,7 +126,7 @@ async def upload_document(
     get_storage().put(doc.storage_key, content, content_type)
     enqueue(
         db, source_type="kb", source_id=doc.id, visibility="global",
-        storage_key=doc.storage_key, ext=ext,
+        storage_key=doc.storage_key, ext=ext, title=doc.title,
     )
     record_audit(
         db, actor_id=actor.id, action="kb_document.upload", entity_type="kb_document",
@@ -159,7 +159,7 @@ async def replace_document(
     get_storage().put(doc.storage_key, content, content_type)
     enqueue(
         db, source_type="kb", source_id=doc.id, visibility="global",
-        storage_key=doc.storage_key, ext=ext,
+        storage_key=doc.storage_key, ext=ext, title=doc.title,
     )
     record_audit(
         db, actor_id=actor.id, action="kb_document.replace", entity_type="kb_document",
@@ -212,7 +212,7 @@ def retry_document(
     doc.error = None
     enqueue(
         db, source_type="kb", source_id=doc.id, visibility="global",
-        storage_key=doc.storage_key, ext=ext,
+        storage_key=doc.storage_key, ext=ext, title=doc.title,
     )
     db.commit()
     return _out(db, doc)

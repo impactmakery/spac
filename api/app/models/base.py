@@ -205,6 +205,7 @@ class Chunk(Base):
             postgresql_using="hnsw",
             postgresql_ops={"embedding": "vector_cosine_ops"},
         ),
+        Index("ix_chunks_search", "search", postgresql_using="gin"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -219,6 +220,15 @@ class Chunk(Base):
     visibility: Mapped[str] = mapped_column(Text, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIM), nullable=False)
+    # Lexical half of hybrid retrieval. 'english' rather than 'simple': it stems
+    # English ("operates" matches "operate") and drops English stopwords, so an
+    # OR query cannot match a document merely on "the". Postgres has no Hebrew
+    # stemmer, so Hebrew tokens pass through unchanged either way.
+    search: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', content)", persisted=True),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

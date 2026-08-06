@@ -153,6 +153,7 @@ async def upload_file(
         visibility="department",
         storage_key=f.storage_key,
         ext=ext,
+        title=f.filename,
         municipality_id=dept.municipality_id,
         department_id=dept.id,
     )

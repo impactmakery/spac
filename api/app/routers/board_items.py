@@ -234,7 +234,8 @@ def _enqueue_item(db: Session, item: BoardItem) -> None:
         visibility="global" if item.scope == "global" else "municipality",
         storage_key=item.storage_key,
         ext=ext,
-        text_content=f"{item.title}\n\n{item.description or ''}",
+        text_content=item.description or "",
+        title=item.title,
         municipality_id=item.municipality_id,
     )
 

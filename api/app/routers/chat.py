@@ -213,7 +213,9 @@ def send_message(
         chunks, citations = [], []
     else:
         [query_embedding] = get_embedding_provider().embed([question])
-        chunks = retrieve(db, query_embedding=query_embedding, user=user)
+        chunks = retrieve(
+            db, query_embedding=query_embedding, user=user, query_text=question
+        )
         citations = build_citations(db, chunks) if chunks else []
     # a citation-less answer must be impossible: without reachable sources we
     # return the standard not-covered reply instead of generating.

@@ -39,6 +39,7 @@ def main() -> None:
                 db, source_type="kb", source_id=doc.id, visibility="global",
                 storage_key=doc.storage_key,
                 ext=doc.filename.rsplit(".", 1)[-1].lower(),
+                title=doc.title,
             )
             doc.status = "pending"
             queued += 1
@@ -49,7 +50,8 @@ def main() -> None:
                 visibility="global" if item.scope == "global" else "municipality",
                 storage_key=item.storage_key,
                 ext=item.filename.rsplit(".", 1)[-1].lower() if item.filename else None,
-                text_content=f"{item.title}\n\n{item.description or ''}",
+                text_content=item.description or "",
+                title=item.title,
                 municipality_id=item.municipality_id,
             )
             item.indexing_status = "pending"
@@ -61,6 +63,7 @@ def main() -> None:
                 db, source_type="department", source_id=file.id,
                 visibility="department", storage_key=file.storage_key,
                 ext=file.filename.rsplit(".", 1)[-1].lower(),
+                title=file.filename,
                 municipality_id=department.municipality_id if department else None,
                 department_id=file.department_id,
             )

@@ -33,13 +33,16 @@ def enqueue(
     storage_key: str | None = None,
     ext: str | None = None,
     text_content: str | None = None,
+    title: str | None = None,
     municipality_id: uuid.UUID | None = None,
     department_id: uuid.UUID | None = None,
 ) -> IngestionJob:
     """Queue (re)indexing of a source. Caller owns the transaction.
 
     Pass storage_key+ext for files, or text_content for text-only sources
-    (board descriptions of link items, department posts).
+    (board descriptions of link items, department posts). The title, when the
+    source has one, is prepended to every chunk so a passage retrieved from the
+    middle of a document still says what document it came from.
     """
     job = IngestionJob(
         source_type=source_type,
@@ -48,6 +51,7 @@ def enqueue(
             "storage_key": storage_key,
             "ext": ext,
             "text": text_content,
+            "title": title,
             "visibility": visibility,
             "municipality_id": str(municipality_id) if municipality_id else None,
             "department_id": str(department_id) if department_id else None,
@@ -86,7 +90,7 @@ def _process(db: Session, job: IngestionJob) -> None:
             txt = payload["text"] + "\n\n" + txt
     else:
         txt = payload.get("text") or ""
-    chunks = chunk_text(txt)
+    chunks = chunk_text(txt, title=payload.get("title"))
     embeddings = get_embedding_provider().embed(chunks) if chunks else []
 
     db.execute(

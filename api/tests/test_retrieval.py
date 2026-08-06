@@ -58,7 +58,7 @@ def retrieve_for(db, user, text):
     from app.rag.retrieval import retrieve
 
     [vec] = get_embedding_provider().embed([text])
-    return retrieve(db, query_embedding=vec, user=user)
+    return retrieve(db, query_embedding=vec, user=user, query_text=text)
 
 
 def test_global_chunk_visible_to_everyone(db, world):
@@ -147,3 +147,132 @@ def test_system_admin_sees_everything(db, world):
         municipality=world["m1"], department=world["d1"],
     )
     assert [h.content for h in retrieve_for(db, world["sys"], dept_text)] == [dept_text]
+
+
+# --- hybrid search -----------------------------------------------------------
+# The lexical arm is a second way into the same rows, so every permission test
+# above must keep passing, and these add the cases dense vectors cannot serve.
+
+
+def test_exact_token_found_that_dense_retrieval_misses(db, world):
+    """Form numbers and regulation references carry little semantic signal;
+    lexical matching is what makes them findable."""
+    text = "Applications use form 4B under regulation 17.3 of the planning code."
+    add_chunk(db, text=text, visibility="global")
+
+    hits = retrieve_for(db, world["member"], "regulation 17.3")
+    assert [h.content for h in hits] == [text]
+    assert hits[0].from_lexical
+
+
+def test_lexical_arm_respects_the_permission_filter(db, world):
+    """A second retrieval path must not become a way around the boundary."""
+    secret = "Education staffing plan uses form 9Z under regulation 42.1"
+    add_chunk(
+        db, text=secret, visibility="department",
+        municipality=world["m1"], department=world["d1b"],
+    )
+    # an exact-token query that lexical search would certainly match
+    assert retrieve_for(db, world["member"], "form 9Z regulation 42.1") == []
+    assert retrieve_for(db, world["foreign"], "form 9Z regulation 42.1") == []
+    # its own department still finds it
+    assert retrieve_for(db, world["sibling"], "form 9Z regulation 42.1")
+
+
+def test_lexical_arm_excludes_archived_and_inactive_scopes(db, world):
+    add_chunk(
+        db, text="Archived unit uses form 3C", visibility="department",
+        municipality=world["m1"], department=world["archived"],
+    )
+    world["member"].departments.append(world["archived"])
+    db.commit()
+    assert retrieve_for(db, world["member"], "form 3C") == []
+
+
+def test_paraphrased_question_still_finds_the_passage(db, world):
+    """Neither arm has to win on its own — this is why both exist. Offline the
+    dense arm scores this paraphrase just under the threshold and the lexical
+    arm carries it; with real embeddings the dense arm carries it instead."""
+    text = "Waste collection operates every Tuesday and Friday in all neighbourhoods"
+    add_chunk(db, text=text, visibility="global")
+    hits = retrieve_for(db, world["member"], "Which days does waste collection operate?")
+    assert hits and hits[0].content == text
+    assert hits[0].from_dense or hits[0].from_lexical
+
+
+def test_dense_arm_works_on_its_own(db, world):
+    """A query the lexical arm cannot serve: no shared surface tokens."""
+    text = "Waste collection operates every Tuesday and Friday"
+    add_chunk(db, text=text, visibility="global")
+    hits = retrieve_for(db, world["member"], text)  # exact semantic match
+    assert hits and hits[0].from_dense
+
+
+def test_fusion_ranks_a_chunk_found_by_both_arms_first(db, world):
+    both = "Budget planning cycle begins in November for every municipality"
+    dense_only = "Budget planning guidance and municipal planning notes"
+    add_chunk(db, text=both, visibility="global")
+    add_chunk(db, text=dense_only, visibility="global")
+
+    hits = retrieve_for(db, world["member"], "Budget planning cycle begins in November")
+    assert hits[0].content == both
+    assert hits[0].from_dense and hits[0].from_lexical
+    assert hits[0].score >= (hits[1].score if len(hits) > 1 else 0)
+
+
+def test_unrelated_query_still_returns_nothing(db, world):
+    add_chunk(db, text="Waste collection schedule for neighbourhoods", visibility="global")
+    assert retrieve_for(db, world["member"], "capital of France population 1970") == []
+
+
+def test_one_incidental_word_is_not_evidence(db, world):
+    """The lexical arm ORs the query terms for recall. Without a floor, an
+    unanswerable question matches any chunk sharing a single common word and
+    comes back with confident-looking citations instead of "not covered"."""
+    add_chunk(
+        db,
+        text="The municipal budget plan for 2026 covers road maintenance costs",
+        visibility="global",
+    )
+    assert retrieve_for(
+        db, world["member"],
+        "How many new staffing roles does the education plan allocate?",
+    ) == []
+
+
+def test_short_precise_query_still_matches_on_its_own_terms(db, world):
+    """The floor must not price out the queries hybrid search exists to serve."""
+    text = "Applications use form 4B under regulation 17.3 of the planning code."
+    add_chunk(db, text=text, visibility="global")
+    assert [h.content for h in retrieve_for(db, world["member"], "regulation 17.3")] == [text]
+
+
+def test_lexical_arm_matches_hebrew_tokens(db, world):
+    """The tsvector uses the 'english' configuration, which does not stem Hebrew
+    but does tokenise it — so exact Hebrew terms are still findable lexically.
+    The query embedding here is deliberately unrelated, so a hit can only come
+    from the lexical arm."""
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+
+    text = "מכרז 2026/14 לאיסוף פסולת בשכונות הצפון"
+    add_chunk(db, text=text, visibility="global")
+
+    [unrelated] = get_embedding_provider().embed(["completely different english text"])
+    hits = retrieve(db, query_embedding=unrelated, user=world["member"],
+                    query_text="מכרז 2026/14 לאיסוף פסולת")
+    assert [h.content for h in hits] == [text]
+    assert hits[0].from_lexical and not hits[0].from_dense
+
+
+def test_hebrew_lexical_hit_still_obeys_permissions(db, world):
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+
+    secret = "מכרז 2026/99 סודי של מחלקת החינוך"
+    add_chunk(db, text=secret, visibility="department",
+              municipality=world["m1"], department=world["d1b"])
+
+    [unrelated] = get_embedding_provider().embed(["completely different english text"])
+    assert retrieve(db, query_embedding=unrelated, user=world["member"],
+                    query_text="מכרז 2026/99 סודי") == []

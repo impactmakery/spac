@@ -136,3 +136,61 @@ def test_extract_corrupt_raises():
 
     with pytest.raises(ExtractionError):
         extract_text(b"garbage bytes", "docx")
+
+
+# ---------- structure-aware chunking ----------
+
+
+def test_chunks_break_at_paragraph_boundaries():
+    """A chunk that ends mid-sentence embeds poorly and reads badly when cited."""
+    from app.rag.chunking import chunk_text, token_len
+
+    paragraphs = [f"Paragraph {i}. " + " ".join(f"word{j}" for j in range(120))
+                  for i in range(12)]
+    chunks = chunk_text("\n\n".join(paragraphs), max_tokens=400, overlap=60)
+
+    assert len(chunks) > 1
+    for c in chunks:
+        assert token_len(c) <= 400
+        # every chunk starts at a paragraph start, never mid-sentence
+        assert c.startswith("Paragraph")
+
+
+def test_title_is_prepended_to_every_chunk():
+    from app.rag.chunking import chunk_text
+
+    body = "\n\n".join(f"Section {i} body text here." for i in range(5))
+    chunks = chunk_text(body, max_tokens=20, overlap=5, title="Waste Guidelines")
+    assert len(chunks) > 1
+    assert all(c.startswith("Waste Guidelines") for c in chunks)
+    # the title costs budget but must never displace content
+    joined = " ".join(chunks)
+    assert all(f"Section {i}" in joined for i in range(5))
+
+
+def test_overlap_carries_context_across_the_seam():
+    from app.rag.chunking import chunk_text
+
+    paragraphs = [f"Block{i} " + " ".join(["filler"] * 40) for i in range(8)]
+    chunks = chunk_text("\n\n".join(paragraphs), max_tokens=200, overlap=80)
+    assert len(chunks) > 1
+    # the start of a later chunk repeats the end of the previous one
+    first_blocks = {line.split()[0] for line in chunks[0].split("\n\n")}
+    second_blocks = {line.split()[0] for line in chunks[1].split("\n\n")}
+    assert first_blocks & second_blocks
+
+
+def test_single_oversized_block_is_still_split():
+    from app.rag.chunking import chunk_text, token_len
+
+    wall = " ".join(f"word{i}" for i in range(2000))  # no paragraph breaks at all
+    chunks = chunk_text(wall, max_tokens=300, overlap=50)
+    assert len(chunks) > 1
+    assert all(token_len(c) <= 300 for c in chunks)
+
+
+def test_short_document_stays_one_chunk():
+    from app.rag.chunking import chunk_text
+
+    assert chunk_text("A short procedure note.") == ["A short procedure note."]
+    assert chunk_text("   ") == []

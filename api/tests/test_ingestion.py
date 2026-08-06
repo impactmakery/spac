@@ -145,3 +145,49 @@ def test_source_deleted_mid_run_does_not_kill_the_worker(db, files_dir, monkeypa
     db.expire_all()
     assert db.query(IngestionJob).count() == 0
     assert db.query(KbDocument).count() == 0
+
+
+def test_document_title_lands_on_every_chunk(db, files_dir):
+    """A passage cited from the middle of a long file must still name its
+    source, and the title sharpens the embedding of every chunk."""
+    from app.models import Chunk
+    from app.rag.chunking import CHUNK_TOKENS
+    from app.services.ingestion import enqueue, run_pending_jobs
+    from app.services.storage import get_storage
+
+    doc = _make_doc(db, storage_key="kb/test/long.docx")
+    body = "\n\n".join(
+        f"Section {i}. " + " ".join(f"detail{j}" for j in range(200))
+        for i in range(12)
+    )
+    get_storage().put(doc.storage_key, _docx_bytes(body), "x")
+    enqueue(
+        db, source_type="kb", source_id=doc.id, visibility="global",
+        storage_key=doc.storage_key, ext="docx", title=doc.title,
+    )
+    db.commit()
+    run_pending_jobs(db)
+
+    chunks = db.query(Chunk).filter(Chunk.source_id == doc.id).all()
+    assert len(chunks) > 1, "the fixture body must be long enough to split"
+    assert all(c.content.startswith("Guidelines") for c in chunks)
+    from app.rag.chunking import token_len
+
+    assert all(token_len(c.content) <= CHUNK_TOKENS for c in chunks)
+
+
+def test_titled_source_with_no_body_still_indexes(db, files_dir):
+    """A board link item has a title and no file; it must stay searchable."""
+    from app.models import Chunk
+    from app.services.ingestion import enqueue, run_pending_jobs
+
+    doc = _make_doc(db, storage_key="kb/test/empty.docx")
+    enqueue(
+        db, source_type="board", source_id=doc.id, visibility="global",
+        text_content="", title="Recycling centre opening hours",
+    )
+    db.commit()
+    run_pending_jobs(db)
+
+    chunks = db.query(Chunk).filter(Chunk.source_id == doc.id).all()
+    assert [c.content for c in chunks] == ["Recycling centre opening hours"]

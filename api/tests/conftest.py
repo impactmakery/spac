@@ -24,18 +24,36 @@ def _hermetic_providers():
     not spend money or depend on a network, so those are ignored here. Keys
     exported in the shell ARE honoured — that is how CI and the opt-in live RAG
     eval ask for the real providers.
+
+    R2 belongs in this list too: with real bucket credentials present,
+    get_storage() hands back the R2 provider and every upload test writes to —
+    and reads from — the production bucket over the network.
     """
     from app.core.config import get_settings
 
     settings = get_settings()
     saved: dict[str, str] = {}
-    for field in ("openai_api_key", "llm_api_key", "embedding_api_key"):
+    for field in (
+        "openai_api_key",
+        "llm_api_key",
+        "embedding_api_key",
+        "r2_account_id",
+        "r2_access_key_id",
+        "r2_secret_access_key",
+    ):
         if not os.environ.get(field.upper()):  # came from .env, not the shell
             saved[field] = getattr(settings, field)
             setattr(settings, field, "")
+            # Blanking the live object is not enough: get_settings() is cached,
+            # and any test that clears that cache (test_config does) rebuilds
+            # Settings straight from .env, handing every later test the real
+            # keys. An empty env var outranks the .env file, so a rebuilt
+            # Settings stays hermetic too.
+            os.environ[field.upper()] = ""
     yield
     for field, value in saved.items():
         setattr(settings, field, value)
+        os.environ.pop(field.upper(), None)
 
 
 @pytest.fixture(autouse=True)
