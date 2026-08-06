@@ -37,6 +37,8 @@ log = logging.getLogger(__name__)
 MAX_HOPS = 2
 MAX_SEED_ENTITIES = 8
 MAX_GRAPH_CHUNKS = 20
+# Below this, a name matches too much of the corpus to mean anything.
+MIN_ENTITY_NAME_LENGTH = 5
 
 KINDS = ("person", "organization", "location", "regulation", "date", "other")
 
@@ -443,16 +445,29 @@ _EDGE_PERMISSION = """
     )
 """
 
+# Seeds are found by asking which known entity names appear in the question,
+# rather than by extracting entities from the question and matching exactly.
+#
+# Exact matching couples the query path to the indexing path: an entity stored
+# as "אגף הרווחה" would be missed by a question that phrases it "תקציב אגף
+# הרווחה". It would also mean running the extractor on every question — and with
+# the LLM extractor configured, that is a model call on the hot path of every
+# single answer. Containment needs no extractor at all.
+#
+# The length floor keeps short names ("plan", "2026") from matching half the
+# corpus. Longest first, so the most specific entity seeds the walk.
 SEED_SQL = f"""
-SELECT DISTINCT ge.id, ge.name
+SELECT DISTINCT ge.id, ge.name, length(ge.normalized) AS len
 FROM graph_entities ge
 JOIN graph_mentions e ON e.entity_id = ge.id
 LEFT JOIN municipalities m ON m.id = e.municipality_id
 LEFT JOIN departments d ON d.id = e.department_id
-WHERE ge.normalized = ANY(:names)
+WHERE length(ge.normalized) >= :min_name_length
+  AND position(ge.normalized in :normalized_query) > 0
   AND (m.id IS NULL OR m.status = 'active')
   AND (d.id IS NULL OR d.status = 'active')
   AND {_EDGE_PERMISSION}
+ORDER BY len DESC
 LIMIT :max_seeds
 """
 
@@ -474,15 +489,32 @@ WITH RECURSIVE reachable(entity_id, depth) AS (
       AND (d.id IS NULL OR d.status = 'active')
       AND {_EDGE_PERMISSION}
 )
-SELECT DISTINCT e.chunk_id
-FROM reachable r
-JOIN graph_relations e
-  ON (e.subject_id = r.entity_id OR e.object_id = r.entity_id)
-LEFT JOIN municipalities m ON m.id = e.municipality_id
-LEFT JOIN departments d ON d.id = e.department_id
-WHERE (m.id IS NULL OR m.status = 'active')
-  AND (d.id IS NULL OR d.status = 'active')
-  AND {_EDGE_PERMISSION}
+-- Chunks that evidenced a crossable edge, UNION chunks that merely mention a
+-- reachable entity. The second half matters more than it looks: with a sparse
+-- relation set — the pattern extractor, or any Hebrew corpus before the LLM
+-- extractor is enabled — there are no edges to walk, and a relations-only
+-- traversal would return nothing at all. Mentions let the arm degrade to "these
+-- documents talk about what you asked about" instead of going silent.
+SELECT DISTINCT chunk_id FROM (
+    SELECT e.chunk_id
+    FROM reachable r
+    JOIN graph_relations e
+      ON (e.subject_id = r.entity_id OR e.object_id = r.entity_id)
+    LEFT JOIN municipalities m ON m.id = e.municipality_id
+    LEFT JOIN departments d ON d.id = e.department_id
+    WHERE (m.id IS NULL OR m.status = 'active')
+      AND (d.id IS NULL OR d.status = 'active')
+      AND {_EDGE_PERMISSION}
+  UNION
+    SELECT e.chunk_id
+    FROM reachable r
+    JOIN graph_mentions e ON e.entity_id = r.entity_id
+    LEFT JOIN municipalities m ON m.id = e.municipality_id
+    LEFT JOIN departments d ON d.id = e.department_id
+    WHERE (m.id IS NULL OR m.status = 'active')
+      AND (d.id IS NULL OR d.status = 'active')
+      AND {_EDGE_PERMISSION}
+) reached
 LIMIT :max_chunks
 """
 
@@ -507,14 +539,19 @@ def related_chunk_ids(
     graph knows about, and callers must treat it as "no graph signal" rather
     than "no results".
     """
-    extraction = get_extractor().extract(query_text)
-    names = [e.normalized for e in extraction.entities]
-    if not names:
+    normalized_query = normalize(query_text)
+    if len(normalized_query) < MIN_ENTITY_NAME_LENGTH:
         return []
 
     params = _permission_params(user)
     seeds = db.execute(
-        text(SEED_SQL), {**params, "names": names, "max_seeds": MAX_SEED_ENTITIES}
+        text(SEED_SQL),
+        {
+            **params,
+            "normalized_query": normalized_query,
+            "min_name_length": MIN_ENTITY_NAME_LENGTH,
+            "max_seeds": MAX_SEED_ENTITIES,
+        },
     ).all()
     if not seeds:
         return []

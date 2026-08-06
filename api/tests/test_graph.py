@@ -331,3 +331,49 @@ def test_pattern_extractor_is_the_default(monkeypatch):
         assert isinstance(get_extractor(), PatternExtractor)
     finally:
         set_extractor(None)
+
+
+def test_seeding_matches_an_entity_named_inside_a_longer_question(db, world):
+    """Questions are not entity lists. "מה התקציב של אגף הרווחה?" must still seed
+    on אגף הרווחה — and finding seeds must not require running an extractor on
+    the question, which with the LLM extractor would be a model call per answer."""
+    from app.rag.graph import related_chunk_ids
+
+    chunk = add_indexed_chunk(
+        db, text="אגף הרווחה מנהל את תוכנית הקליטה", visibility="global",
+    )
+    found = related_chunk_ids(
+        db, query_text="מה התקציב השנתי של אגף הרווחה בשנת 2026?",
+        user=world["welfare_user"],
+    )
+    assert chunk.id in found
+
+
+def test_seeding_does_not_require_the_extractor(db, world, monkeypatch):
+    from app.rag import graph as graph_mod
+
+    add_indexed_chunk(db, text="Budget Committee approves the Capital Plan",
+                      visibility="global")
+
+    def explode(_body):
+        raise AssertionError("the extractor must not run on the query path")
+
+    class Exploding:
+        extract = staticmethod(explode)
+
+    graph_mod.set_extractor(Exploding())
+    try:
+        assert graph_mod.related_chunk_ids(
+            db, query_text="who approves the Capital Plan",
+            user=world["welfare_user"],
+        )
+    finally:
+        graph_mod.set_extractor(None)
+
+
+def test_very_short_questions_seed_nothing(db, world):
+    from app.rag.graph import related_chunk_ids
+
+    add_indexed_chunk(db, text="Budget Committee approves the Capital Plan",
+                      visibility="global")
+    assert related_chunk_ids(db, query_text="hi", user=world["welfare_user"]) == []
