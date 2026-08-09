@@ -12,7 +12,7 @@ import { StatusChip } from "@/components/kb-doc-row";
 import { Button, Card, FieldError } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatBytes } from "@/lib/format";
-import type { KbDocDetail } from "@/lib/kb-types";
+import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
 
@@ -20,10 +20,13 @@ export function DocClient({
   doc,
   apiBase,
   canManage,
+  preview,
 }: {
   doc: KbDocDetail;
   apiBase: string;
   canManage: boolean;
+  /** Extracted text, for formats a browser cannot render. Null for a PDF. */
+  preview?: TextPreview | null;
 }) {
   const t = useTranslations("knowledge");
   const confirm = useConfirm();
@@ -138,6 +141,21 @@ export function DocClient({
       <Card className="overflow-hidden">
         {isPdf ? (
           <iframe src={downloadUrl} className="h-[70vh] w-full" title={doc.title} />
+        ) : preview?.available ? (
+          <div className="max-h-[70vh] overflow-auto p-6">
+            <p className="mb-3 text-xs text-muted-foreground">{t("textPreview")}</p>
+            {/* The document's words, not its layout. Tables, images and
+                formatting are missing by design — the original is a click
+                away, and this answers what is in it. */}
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-foreground">
+              {preview.text}
+            </pre>
+            {preview.truncated && (
+              <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground">
+                {t("previewTruncated")}
+              </p>
+            )}
+          </div>
         ) : (
           <p className="p-10 text-center text-sm text-muted-foreground">{t("noPreview")}</p>
         )}

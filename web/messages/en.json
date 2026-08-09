@@ -252,7 +252,9 @@
     "badType": "Unsupported file type (PDF, DOCX, PPTX, XLSX only)",
     "empty": "No documents yet",
     "emptyBody": "Upload the program's first foundation document.",
-    "uploaded": "{count} files uploaded"
+    "uploaded": "{count} files uploaded",
+    "textPreview": "Text of the document — formatting, tables and images are not shown. Download the file for the original.",
+    "previewTruncated": "This document is long; only the beginning is shown. Download the file to read it all."
   },
   "municipalities": {
     "title": "Municipalities",

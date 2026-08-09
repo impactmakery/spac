@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 from app.core.db import get_db
 from app.core.security import get_current_user, require_municipality_admin
 from app.models import Chunk, IngestionJob, KbDocument, Municipality, User
+from app.rag.extract import extract_text
 from app.services.audit import record_audit
 from app.services.ingestion import enqueue
 from app.services.storage import get_storage
-from app.services.uploads import validate_upload
+from app.services.uploads import is_extractable, validate_upload
 
 router = APIRouter(prefix="/api/kb-documents", tags=["kb"])
 
@@ -99,6 +100,53 @@ def get_document(
             doc.storage_key, doc.filename, content_type=doc.content_type
         ),
         error=doc.error if (user.role == "system_admin" or doc.uploader_id == user.id) else None,
+    )
+
+
+class TextPreviewOut(BaseModel):
+    text: str
+    truncated: bool
+    available: bool
+
+
+# Long enough for any circular or procedure, short enough that a 300-page
+# scan does not arrive as one payload.
+MAX_PREVIEW_CHARS = 200_000
+
+
+@router.get("/{doc_id}/text", response_model=TextPreviewOut)
+def document_text(
+    doc_id: uuid.UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TextPreviewOut:
+    """The document's text, for previewing formats a browser cannot render.
+
+    Word, PowerPoint and Excel files cannot be shown in a frame, and converting
+    them server-side would mean carrying an office suite in the image. The text
+    is already extracted for the assistant, so reusing it answers "what is in
+    this document?" — which is what a preview is for — at no new cost.
+
+    The knowledge base is global, so any signed-in person may read this; the
+    permission check is simply that they are signed in, exactly as for the
+    document page itself.
+    """
+    doc = _get_or_404(db, doc_id)
+    ext = doc.filename.rsplit(".", 1)[-1].lower() if "." in doc.filename else ""
+    if not is_extractable(ext):
+        return TextPreviewOut(text="", truncated=False, available=False)
+
+    try:
+        content = get_storage().open(doc.storage_key)
+        text = extract_text(content, ext)
+    except Exception:  # noqa: BLE001 — a preview must never break the page
+        return TextPreviewOut(text="", truncated=False, available=False)
+
+    truncated = len(text) > MAX_PREVIEW_CHARS
+    return TextPreviewOut(
+        text=text[:MAX_PREVIEW_CHARS],
+        truncated=truncated,
+        available=bool(text.strip()),
     )
 
 

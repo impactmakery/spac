@@ -16,3 +16,10 @@ export interface KbDocDetail extends KbDocRow {
   download_url: string;
   error: string | null;
 }
+
+/** The document's text, for formats a browser cannot render in a frame. */
+export interface TextPreview {
+  text: string;
+  truncated: boolean;
+  available: boolean;
+}
