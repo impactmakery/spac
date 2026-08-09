@@ -58,7 +58,7 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
   }
 
   async function onDelete(row: CategoryRow) {
-    if (!(await confirm({ title: t("deleteConfirm", { name: label(row) }) }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm", { name: label(row) }) }))) return;
     const res = await deleteCategory(row.id);
     if ("error" in res) {
       toast(res.error === "category_in_use" ? t("errInUse") : t("errGeneric"));

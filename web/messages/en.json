@@ -16,7 +16,10 @@
     "deleted": "Deleted",
     "saved": "Saved",
     "published": "Published",
-    "updated": "Updated"
+    "updated": "Updated",
+    "deactivate": "Deactivate",
+    "deleteTitle": "Delete this?",
+    "deactivateTitle": "Deactivate this?"
   },
   "auth": {
     "login": {

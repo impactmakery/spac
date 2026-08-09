@@ -36,7 +36,7 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
   const router = useRouter();
 
   async function onDelete() {
-    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm") }))) return;
     const res = await deleteBoardItem(item.id);
     if ("error" in res) return toast(tc("error"));
     toast(tc("deleted"), "success");

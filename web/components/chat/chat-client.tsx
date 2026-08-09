@@ -32,6 +32,7 @@ export function ChatClient({
 }) {
   const t = useTranslations("chat");
   const confirm = useConfirm();
+  const tc = useTranslations("common");
   const router = useRouter();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -148,7 +149,7 @@ export function ChatClient({
   }
 
   async function onDelete(convo: ConversationRow) {
-    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm") }))) return;
     await deleteConversation(convo.id);
     if (convo.id === conversationId) router.push("/chat");
     router.refresh();

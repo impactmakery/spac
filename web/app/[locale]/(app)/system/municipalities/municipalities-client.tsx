@@ -75,7 +75,12 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
   async function toggleActive(row: MunicipalityRow) {
     if (
       row.status === "active" &&
-      !(await confirm({ title: t("deactivateConfirm"), destructive: false }))
+      !(await confirm({
+                  title: tc("deactivateTitle"),
+                  body: t("deactivateConfirm"),
+                  confirmLabel: tc("deactivate"),
+                  destructive: false,
+                }))
     ) {
       return;
     }

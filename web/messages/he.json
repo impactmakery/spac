@@ -16,7 +16,10 @@
     "deleted": "נמחק",
     "saved": "נשמר",
     "published": "פורסם",
-    "updated": "עודכן"
+    "updated": "עודכן",
+    "deactivate": "השבתה",
+    "deleteTitle": "למחוק?",
+    "deactivateTitle": "להשבית?"
   },
   "auth": {
     "login": {

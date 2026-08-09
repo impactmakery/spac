@@ -39,6 +39,7 @@ export function UsersTable({
 }) {
   const t = useTranslations("usersAdmin");
   const confirm = useConfirm();
+  const tc = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
 
@@ -321,7 +322,9 @@ export function UsersTable({
                             onClick={async () => {
                               if (
                                 await confirm({
-                                  title: t("deactivateConfirm"),
+                                  title: tc("deactivateTitle"),
+                                  body: t("deactivateConfirm"),
+                                  confirmLabel: tc("deactivate"),
                                   destructive: false,
                                 })
                               ) {

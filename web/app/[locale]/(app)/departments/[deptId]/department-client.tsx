@@ -66,7 +66,7 @@ export function DepartmentClient({
   }
 
   async function onDeleteFile(fileId: string) {
-    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm") }))) return;
     const res = await deleteDepartmentFile(deptId, fileId);
     if ("error" in res) return toast(tc("error"));
     toast(tc("deleted"), "success");
@@ -86,7 +86,7 @@ export function DepartmentClient({
   }
 
   async function onDeletePost(postId: string) {
-    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm") }))) return;
     const res = await deleteDepartmentPost(deptId, postId);
     if ("error" in res) return toast(tc("error"));
     toast(tc("deleted"), "success");

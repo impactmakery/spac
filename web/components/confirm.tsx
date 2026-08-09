@@ -1,23 +1,23 @@
 "use client";
 
+import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useTranslations } from "next-intl";
-import { Dialog } from "@/components/dialog";
-import { Button } from "@/components/ui";
+import { Button, Card, cn } from "@/components/ui";
 
 /** A styled replacement for window.confirm.
  *
- * It is promise-based on purpose: every call site already read
+ * Promise-based on purpose: every call site already read
  * `if (!window.confirm(...)) return;`, so becoming
  * `if (!(await confirm({...}))) return;` leaves the surrounding logic alone.
- * Threading dialog state through nine components by hand would have been a far
- * larger change for the same result.
  *
- * window.confirm is unstyled, ignores the app's right-to-left direction, cannot
- * say what is about to be lost, and is suppressible by the browser.
+ * The layout is deliberately not the generic Dialog. A confirmation has a short
+ * heading, an explanation, and two choices — and it should not offer a close
+ * ✕ that means the same as Cancel but looks like a third option.
  */
 interface ConfirmOptions {
+  /** A few words. The explanation belongs in `body`. */
   title: string;
   body?: string;
   confirmLabel?: string;
@@ -32,7 +32,6 @@ const ConfirmContext = createContext<
 export function ConfirmProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("common");
   const [options, setOptions] = useState<ConfirmOptions | null>(null);
-  const [busy, setBusy] = useState(false);
   const resolver = useRef<((ok: boolean) => void) | null>(null);
 
   const confirm = useCallback((next: ConfirmOptions) => {
@@ -42,48 +41,70 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  function settle(answer: boolean) {
+  const settle = useCallback((answer: boolean) => {
     resolver.current?.(answer);
     resolver.current = null;
     setOptions(null);
-    setBusy(false);
-  }
+  }, []);
+
+  const destructive = options?.destructive !== false;
 
   return (
     <ConfirmContext.Provider value={confirm}>
       {children}
-      <Dialog
-        open={options !== null}
-        onClose={() => settle(false)}
-        title={options?.title ?? ""}
-      >
-        {options?.body && (
-          <p className="text-sm text-muted-foreground">{options.body}</p>
-        )}
-        <div className="mt-5 flex justify-end gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={busy}
+      {options && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+          onKeyDown={(e) => e.key === "Escape" && settle(false)}
+        >
+          <button
+            aria-hidden
+            tabIndex={-1}
+            className="absolute inset-0 bg-foreground/40"
             onClick={() => settle(false)}
-          >
-            {t("cancel")}
-          </Button>
-          <Button
-            type="button"
-            variant={options?.destructive === false ? "primary" : "destructive"}
-            disabled={busy}
-            onClick={() => {
-              // The caller does the work after this resolves, so the button
-              // disables itself rather than waiting on something it cannot see.
-              setBusy(true);
-              settle(true);
-            }}
-          >
-            {options?.confirmLabel ?? t("delete")}
-          </Button>
+          />
+          <Card className="relative z-10 w-full max-w-sm p-6">
+            <div className="flex gap-4">
+              <span
+                aria-hidden
+                className={cn(
+                  "flex size-10 shrink-0 items-center justify-center rounded-full",
+                  destructive
+                    ? "bg-destructive/10 text-destructive"
+                    : "bg-accent text-accent-foreground",
+                )}
+              >
+                <AlertTriangle className="size-5" />
+              </span>
+              <div className="min-w-0 pt-1">
+                <h2 className="text-base font-semibold text-foreground">
+                  {options.title}
+                </h2>
+                {options.body && (
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                    {options.body}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => settle(false)}>
+                {t("cancel")}
+              </Button>
+              <Button
+                type="button"
+                autoFocus
+                variant={destructive ? "destructive" : "primary"}
+                onClick={() => settle(true)}
+              >
+                {options.confirmLabel ?? t("delete")}
+              </Button>
+            </div>
+          </Card>
         </div>
-      </Dialog>
+      )}
     </ConfirmContext.Provider>
   );
 }

@@ -55,7 +55,7 @@ export function KbAdminClient({ docs }: { docs: KbDocRow[] }) {
   }
 
   async function onDelete(doc: KbDocRow) {
-    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    if (!(await confirm({ title: tc("deleteTitle"), body: t("deleteConfirm") }))) return;
     const res = await deleteKbDocument(doc.id);
     if ("error" in res) return toast(tc("error"));
     toast(tc("deleted"), "success");
