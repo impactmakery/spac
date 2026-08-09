@@ -1,0 +1,11 @@
+# The generator follows the API's settings. `handover_sections.py` is content
+# rather than code — each row of a table is one line of prose — so the line
+# limit does not apply there. Wrapping those rows makes them harder to read and
+# edit than the long lines it would replace.
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[lint.per-file-ignores]
+"handover_sections.py" = ["E501"]
