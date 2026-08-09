@@ -18,6 +18,7 @@ export function BoardPage({
   hasMore,
   categories,
   canChooseDestination,
+  canManageCategories,
   search,
   categoryId,
   sort,
@@ -29,6 +30,7 @@ export function BoardPage({
   hasMore: boolean;
   categories: CategoryRef[];
   canChooseDestination: boolean;
+  canManageCategories: boolean;
   search: string;
   categoryId: string;
   sort: string;
@@ -133,6 +135,7 @@ export function BoardPage({
         categories={categories}
         defaultDestination={scope}
         canChooseDestination={canChooseDestination}
+        canManageCategories={canManageCategories}
       />
     </div>
   );

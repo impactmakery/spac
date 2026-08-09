@@ -2,6 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
+import { useRouter } from "@/i18n/navigation";
 import { publishBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Dialog } from "@/components/dialog";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
@@ -12,6 +13,10 @@ const MAX_PROMPT = 20000;
 
 type Mode = "link" | "file" | "prompt";
 
+// A <select> cannot contain a link, so the option carries a sentinel value
+// and selecting it navigates instead of setting a category.
+const ADD_CATEGORY = "__add_category__";
+
 export function PublishDialog({
   open,
   onClose,
@@ -19,6 +24,7 @@ export function PublishDialog({
   categories,
   defaultDestination,
   canChooseDestination,
+  canManageCategories,
 }: {
   open: boolean;
   onClose: () => void;
@@ -26,9 +32,11 @@ export function PublishDialog({
   categories: CategoryRef[];
   defaultDestination: "global" | "municipality";
   canChooseDestination: boolean;
+  canManageCategories: boolean;
 }) {
   const t = useTranslations("board");
   const locale = useLocale();
+  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
@@ -106,10 +114,15 @@ export function PublishDialog({
     return (
       <Dialog open={open} onClose={onClose} title={t("publishTitle")}>
         <p className="text-sm text-muted-foreground">{t("noCategories")}</p>
-        <div className="mt-4 flex justify-end">
+        <div className="mt-4 flex justify-end gap-2">
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("close")}
           </Button>
+          {canManageCategories && (
+            <Button type="button" onClick={() => router.push("/system/categories")}>
+              {t("addCategory")}
+            </Button>
+          )}
         </div>
       </Dialog>
     );
@@ -145,13 +158,24 @@ export function PublishDialog({
             id="category"
             className="w-full"
             value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
+            onChange={(e) => {
+              if (e.target.value === ADD_CATEGORY) {
+                router.push("/system/categories");
+                return;
+              }
+              setCategoryId(e.target.value);
+            }}
           >
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {label(c)}
               </option>
             ))}
+            {/* Only system admins may create categories, so anyone else would
+                be sent to a page that legitimately 404s. */}
+            {canManageCategories && (
+              <option value={ADD_CATEGORY}>+ {t("addCategory")}</option>
+            )}
           </Select>
         </div>
 

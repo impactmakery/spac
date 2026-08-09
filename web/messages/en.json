@@ -191,7 +191,8 @@
     "copyPrompt": "Copy",
     "copied": "Copied",
     "noCategories": "No categories have been set up yet, and every post needs one. A system administrator can add them under System → Categories.",
-    "close": "Close"
+    "close": "Close",
+    "addCategory": "Add category"
   },
   "departmentArea": {
     "filesTab": "Files",
