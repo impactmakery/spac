@@ -522,3 +522,105 @@ def test_deleting_a_comment_removes_its_reactions(client, db, world):
 
     client.delete(f"/api/board-items/{item_id}/comments/{cid}", headers=headers)
     assert db.query(BoardCommentReaction).count() == 0
+
+
+def test_the_assistant_can_use_board_posts_and_respects_their_scope(client, db, world):
+    """A board post is knowledge too. It should be quotable by the assistant —
+    and a municipality post must stay inside its municipality when it is."""
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    client.post("/api/board-items", headers=headers, data={
+        "title": "Recycling centre hours",
+        "category_id": str(world["cat"].id),
+        "destination": "global",
+        "description": "The recycling centre opens Sunday to Thursday, 08:00 to 16:00",
+        "link_url": "https://example.org/recycling"})
+    client.post("/api/board-items", headers=headers, data={
+        "title": "City One procurement note",
+        "category_id": str(world["cat"].id),
+        "destination": "municipality",
+        "description": "City One uses form 7Q for internal procurement requests",
+        "link_url": "https://example.org/procurement"})
+    run_pending_jobs(db)
+
+    def ask(email, question):
+        user = db.query(User).filter_by(email=email).one()
+        [vec] = get_embedding_provider().embed([question])
+        hits = retrieve(db, query_embedding=vec, user=user, query_text=question)
+        return " ".join(h.content for h in hits)
+
+    # global post reaches everyone, including another municipality
+    assert "recycling centre opens" in ask("u2@x.org", "When does the recycling centre open?")
+
+    # municipality post reaches its own members
+    assert "form 7Q" in ask("u1@x.org", "Which form is used for procurement requests?")
+    # but not another municipality
+    assert "form 7Q" not in ask("u2@x.org", "Which form is used for procurement requests?")
+
+
+def test_a_shared_prompt_post_is_quotable_by_the_assistant(client, db, world):
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    client.post("/api/board-items", headers=headers, data={
+        "title": "Tender summary helper",
+        "category_id": str(world["cat"].id),
+        "destination": "global",
+        "prompt_text": "Summarise a tender document under regulation 17.3 in Hebrew"})
+    run_pending_jobs(db)
+
+    user = db.query(User).filter_by(email="u2@x.org").one()
+    q = "regulation 17.3 tender"
+    [vec] = get_embedding_provider().embed([q])
+    hits = retrieve(db, query_embedding=vec, user=user, query_text=q)
+    assert any("regulation 17.3" in h.content for h in hits)
+    assert any(h.source_type == "board" for h in hits)
+
+
+def test_a_file_attached_to_a_post_is_readable_by_the_assistant(
+    client, db, world, files_dir
+):
+    """A post's attachment is knowledge too — the words inside the file, not
+    just the post's own description."""
+    import docx
+
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+    from app.services.ingestion import run_pending_jobs
+
+    d = docx.Document()
+    d.add_paragraph("Waste collection operates on Mondays and Thursdays in the north")
+    buf = io.BytesIO()
+    d.save(buf)
+
+    headers = auth(client, "u1@x.org")
+    res = client.post(
+        "/api/board-items",
+        data={
+            "title": "Collection schedule",
+            "category_id": str(world["cat"].id),
+            "destination": "global",
+            "description": "Attached is this year's schedule",
+        },
+        files={"file": ("schedule.docx", buf.getvalue(),
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        headers=headers,
+    )
+    assert res.status_code == 201, res.text
+    run_pending_jobs(db)
+
+    user = db.query(User).filter_by(email="u2@x.org").one()
+    q = "Which days does waste collection operate in the north?"
+    [vec] = get_embedding_provider().embed([q])
+    hits = retrieve(db, query_embedding=vec, user=user, query_text=q)
+    assert any("Mondays and Thursdays" in h.content for h in hits), (
+        "the attachment's contents were not indexed"
+    )
