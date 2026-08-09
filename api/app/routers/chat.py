@@ -29,6 +29,7 @@ from app.rag.generation import (
     stream_answer,
 )
 from app.rag.retrieval import RETRIEVAL_SQL, retrieve
+from app.rag.rewrite import standalone_question
 from app.rag.smalltalk import classify as classify_smalltalk
 from app.rag.smalltalk import reply as smalltalk_reply
 from app.services.citations import build_citations
@@ -212,9 +213,14 @@ def send_message(
     if smalltalk_kind:
         chunks, citations = [], []
     else:
-        [query_embedding] = get_embedding_provider().embed([question])
+        # Retrieval searches with the current question alone, so a follow-up
+        # like "and the size limit?" would match almost nothing. Rewriting it
+        # into a standalone question first is what makes a conversation work.
+        # Only the search sees this; generation still gets the person's words.
+        search_text = standalone_question(question, history)
+        [query_embedding] = get_embedding_provider().embed([search_text])
         chunks = retrieve(
-            db, query_embedding=query_embedding, user=user, query_text=question
+            db, query_embedding=query_embedding, user=user, query_text=search_text
         )
         citations = build_citations(db, chunks) if chunks else []
     # a citation-less answer must be impossible: without reachable sources we

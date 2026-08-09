@@ -13,6 +13,7 @@ import { Button, Card, cn } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { ChatMessage, Citation, ConversationRow } from "@/lib/chat-types";
 import { useConfirm } from "@/components/confirm";
+import { AnswerText } from "@/components/chat/answer-text";
 
 interface Pending {
   content: string;
@@ -328,7 +329,7 @@ function AssistantBubble({
         <Sparkles className="size-4" />
       </span>
       <Card className="max-w-[85%] p-4">
-        <p className="whitespace-pre-wrap text-sm text-foreground">{content}</p>
+        <AnswerText content={content} />
         {citations && citations.length > 0 && (
           <div className="mt-3 border-t border-border pt-3">
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
