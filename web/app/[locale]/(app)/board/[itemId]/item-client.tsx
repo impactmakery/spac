@@ -23,6 +23,7 @@ import { CategoryChip } from "@/components/board/item-card";
 import { PromptBlock } from "@/components/board/prompt-block";
 import { Reactions } from "@/components/board/reactions";
 import { Dialog } from "@/components/dialog";
+import { Linkify } from "@/components/linkify";
 import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type {
@@ -171,7 +172,9 @@ export function ItemClient({
 
         <h1 className="mt-3 text-2xl font-bold text-foreground">{item.title}</h1>
         {item.description && (
-          <p className="mt-2 whitespace-pre-wrap text-foreground">{item.description}</p>
+          <p className="mt-2 whitespace-pre-wrap text-foreground">
+            <Linkify text={item.description} />
+          </p>
         )}
 
         {item.prompt_text && (
@@ -397,7 +400,7 @@ function CommentCard({
           </span>
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-          {comment.body}
+          <Linkify text={comment.body} />
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Reactions

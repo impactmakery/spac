@@ -14,6 +14,7 @@ import {
 import { StatusChip } from "@/components/kb-doc-row";
 import { PageHeader } from "@/components/page-header";
 import { Button, Card, FieldError, Input, cn } from "@/components/ui";
+import { Linkify } from "@/components/linkify";
 import { useRouter } from "@/i18n/navigation";
 import type { DeptFile, DeptPost } from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
@@ -226,7 +227,7 @@ export function DepartmentClient({
                       )}
                     </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm text-foreground">
-                      {p.body}
+                      <Linkify text={p.body} />
                     </p>
 
                     {p.comments.length > 0 && (
