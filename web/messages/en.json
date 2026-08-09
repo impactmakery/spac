@@ -197,7 +197,8 @@
     "dropBrowse": "or click to choose one from your computer",
     "removeFile": "Remove file",
     "reply": "Reply",
-    "replyPlaceholder": "Write a reply…"
+    "replyPlaceholder": "Write a reply…",
+    "addReaction": "Add a reaction"
   },
   "departmentArea": {
     "filesTab": "Files",

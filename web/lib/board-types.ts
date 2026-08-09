@@ -40,7 +40,18 @@ export interface BoardComment {
   created_at: string;
   /** Replies are one level deep; a top-level comment has null here. */
   parent_id: string | null;
+  reactions: CommentReaction[];
 }
+
+export interface CommentReaction {
+  emoji: string;
+  count: number;
+  /** Whether the signed-in person is one of the reactors. */
+  mine: boolean;
+}
+
+/** Mirrors REACTIONS in the API; the server rejects anything else. */
+export const REACTIONS = ["👍", "❤️", "😄", "🎉", "🙏", "👀"] as const;
 
 export interface BoardItemDetail extends BoardItemRow {
   download_url: string | null;

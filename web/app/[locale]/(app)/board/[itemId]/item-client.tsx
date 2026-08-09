@@ -21,6 +21,7 @@ import {
 import { Avatar } from "@/components/avatar";
 import { CategoryChip } from "@/components/board/item-card";
 import { PromptBlock } from "@/components/board/prompt-block";
+import { Reactions } from "@/components/board/reactions";
 import { Dialog } from "@/components/dialog";
 import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -233,6 +234,8 @@ export function ItemClient({
                   <li key={c.id}>
                     <CommentCard
                       comment={c}
+                      itemId={item.id}
+                      onChanged={() => router.refresh()}
                       onDelete={onDeleteComment}
                       onReplyClick={() => {
                         setReplyTo(replyTo === c.id ? null : c.id);
@@ -244,7 +247,12 @@ export function ItemClient({
                       <ul className="mt-2 space-y-2 border-s-2 border-border ps-4 ms-4">
                         {replies.map((r) => (
                           <li key={r.id}>
-                            <CommentCard comment={r} onDelete={onDeleteComment} />
+                            <CommentCard
+                              comment={r}
+                              itemId={item.id}
+                              onChanged={() => router.refresh()}
+                              onDelete={onDeleteComment}
+                            />
                           </li>
                         ))}
                         {replyTo === c.id && (
@@ -360,13 +368,17 @@ export function ItemClient({
 
 function CommentCard({
   comment,
+  itemId,
   onDelete,
   onReplyClick,
+  onChanged,
 }: {
   comment: BoardComment;
+  itemId: string;
   onDelete: (id: string) => void;
   /** Only top-level comments offer a reply: threads are one level deep. */
   onReplyClick?: () => void;
+  onChanged: () => void;
 }) {
   const t = useTranslations("board");
   const format = useFormatter();
@@ -387,15 +399,23 @@ function CommentCard({
         <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
           {comment.body}
         </p>
-        {onReplyClick && (
-          <button
-            type="button"
-            onClick={onReplyClick}
-            className="mt-1.5 text-xs font-medium text-primary hover:underline"
-          >
-            {t("reply")}
-          </button>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          <Reactions
+            itemId={itemId}
+            commentId={comment.id}
+            reactions={comment.reactions}
+            onChanged={onChanged}
+          />
+          {onReplyClick && (
+            <button
+              type="button"
+              onClick={onReplyClick}
+              className="mt-1.5 text-xs font-medium text-primary hover:underline"
+            >
+              {t("reply")}
+            </button>
+          )}
+        </div>
       </div>
       {comment.can_delete && (
         <button

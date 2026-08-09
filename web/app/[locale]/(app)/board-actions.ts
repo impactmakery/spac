@@ -97,3 +97,14 @@ export async function deletePostComment(
     method: "DELETE",
   });
 }
+
+export async function toggleCommentReaction(
+  itemId: string,
+  commentId: string,
+  emoji: string,
+) {
+  return call(`/api/board-items/${itemId}/comments/${commentId}/reactions`, {
+    method: "POST",
+    body: JSON.stringify({ emoji }),
+  });
+}

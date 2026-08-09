@@ -361,6 +361,32 @@ class BoardLike(Base):
     )
 
 
+class BoardCommentReaction(Base):
+    """One emoji from one person on one comment.
+
+    The primary key is the triple, so a person may react in several ways to the
+    same comment but cannot double-count any one of them — the toggle is then
+    just an insert or a delete, with no read-modify-write to race on.
+
+    The emoji is validated against a fixed set in the router rather than stored
+    freely: it is rendered directly, and a free-text column would invite both
+    junk and abuse.
+    """
+
+    __tablename__ = "board_comment_reactions"
+
+    comment_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("board_comments.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    emoji: Mapped[str] = mapped_column(Text, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class DepartmentFile(Base):
     __tablename__ = "department_files"
     __table_args__ = (

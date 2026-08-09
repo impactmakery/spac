@@ -432,3 +432,93 @@ def test_deleting_a_comment_removes_its_replies(client, world):
                          headers=headers).status_code == 200
     detail = client.get(f"/api/board-items/{item_id}", headers=headers).json()
     assert detail["comments"] == [], "an orphaned reply survived its parent"
+
+
+# --- comment reactions --------------------------------------------------------
+
+
+def _comment_on(client, headers, world, body="worth reading"):
+    item_id = publish_link(client, headers, world).json()["id"]
+    cid = client.post(f"/api/board-items/{item_id}/comments",
+                      json={"body": body}, headers=headers).json()["id"]
+    return item_id, cid
+
+
+def test_reaction_toggles_on_and_off(client, world):
+    headers = auth(client, "u1@x.org")
+    item_id, cid = _comment_on(client, headers, world)
+    url = f"/api/board-items/{item_id}/comments/{cid}/reactions"
+
+    on = client.post(url, json={"emoji": "👍"}, headers=headers)
+    assert on.status_code == 200, on.text
+    assert on.json() == {"emoji": "👍", "count": 1, "mine": True}
+
+    off = client.post(url, json={"emoji": "👍"}, headers=headers)
+    assert off.json() == {"emoji": "👍", "count": 0, "mine": False}
+
+
+def test_the_same_person_cannot_double_count_one_emoji(client, world):
+    """The key is (comment, person, emoji), so a double click toggles rather
+    than accumulating."""
+    headers = auth(client, "u1@x.org")
+    item_id, cid = _comment_on(client, headers, world)
+    url = f"/api/board-items/{item_id}/comments/{cid}/reactions"
+
+    client.post(url, json={"emoji": "🎉"}, headers=headers)
+    client.post(url, json={"emoji": "🎉"}, headers=headers)
+    third = client.post(url, json={"emoji": "🎉"}, headers=headers)
+    assert third.json()["count"] == 1
+
+
+def test_several_people_and_several_emoji_are_counted_separately(client, world):
+    one = auth(client, "u1@x.org")
+    two = auth(client, "sys@x.org")
+    item_id, cid = _comment_on(client, one, world)
+    url = f"/api/board-items/{item_id}/comments/{cid}/reactions"
+
+    client.post(url, json={"emoji": "👍"}, headers=one)
+    client.post(url, json={"emoji": "👍"}, headers=two)
+    client.post(url, json={"emoji": "❤️"}, headers=one)
+
+    detail = client.get(f"/api/board-items/{item_id}", headers=one).json()
+    reactions = {r["emoji"]: r for r in detail["comments"][0]["reactions"]}
+    assert reactions["👍"]["count"] == 2 and reactions["👍"]["mine"] is True
+    assert reactions["❤️"]["count"] == 1
+
+    # and "mine" is per person, not global
+    detail_two = client.get(f"/api/board-items/{item_id}", headers=two).json()
+    by_emoji = {r["emoji"]: r for r in detail_two["comments"][0]["reactions"]}
+    assert by_emoji["❤️"]["mine"] is False
+
+
+def test_only_the_supported_emoji_are_accepted(client, world):
+    """The value is rendered directly, so the column is not free text."""
+    headers = auth(client, "u1@x.org")
+    item_id, cid = _comment_on(client, headers, world)
+    url = f"/api/board-items/{item_id}/comments/{cid}/reactions"
+
+    for bad in ["💩", "<script>", "👍👍", ""]:
+        assert client.post(url, json={"emoji": bad}, headers=headers).status_code == 422
+
+
+def test_reaction_on_another_posts_comment_is_refused(client, world):
+    headers = auth(client, "u1@x.org")
+    _, cid = _comment_on(client, headers, world)
+    other_item = publish_link(client, headers, world, title="Other").json()["id"]
+
+    res = client.post(f"/api/board-items/{other_item}/comments/{cid}/reactions",
+                      json={"emoji": "👍"}, headers=headers)
+    assert res.status_code == 404
+
+
+def test_deleting_a_comment_removes_its_reactions(client, db, world):
+    from app.models import BoardCommentReaction
+
+    headers = auth(client, "u1@x.org")
+    item_id, cid = _comment_on(client, headers, world)
+    client.post(f"/api/board-items/{item_id}/comments/{cid}/reactions",
+                json={"emoji": "🙏"}, headers=headers)
+    assert db.query(BoardCommentReaction).count() == 1
+
+    client.delete(f"/api/board-items/{item_id}/comments/{cid}", headers=headers)
+    assert db.query(BoardCommentReaction).count() == 0

@@ -11,6 +11,7 @@ from app.core.db import get_db
 from app.core.security import get_current_user
 from app.models import (
     BoardComment,
+    BoardCommentReaction,
     BoardItem,
     BoardLike,
     Category,
@@ -31,6 +32,11 @@ MAX_TITLE = 120
 MAX_DESCRIPTION = 2000
 MAX_COMMENT = 1000
 MAX_PROMPT = 20000  # a shared prompt or agent brief, generous by design
+
+# A fixed set, not free text: the value is rendered directly, and an open column
+# would invite junk and abuse. Six covers acknowledgement, agreement, thanks and
+# amusement, which is most of what a workplace thread needs.
+REACTIONS = ("👍", "❤️", "😄", "🎉", "🙏", "👀")
 
 
 class CategoryRef(BaseModel):
@@ -66,6 +72,12 @@ class BoardItemOut(BaseModel):
     created_at: datetime
 
 
+class ReactionOut(BaseModel):
+    emoji: str
+    count: int
+    mine: bool
+
+
 class CommentOut(BaseModel):
     id: str
     author: AuthorRef
@@ -73,6 +85,7 @@ class CommentOut(BaseModel):
     can_delete: bool
     created_at: datetime
     parent_id: str | None = None
+    reactions: list[ReactionOut] = []
 
 
 class BoardItemDetail(BoardItemOut):
@@ -110,6 +123,36 @@ def _can_delete(db: Session, item: BoardItem, user: User) -> bool:
     # global board: may moderate their own municipality's members' items
     author = db.get(User, item.author_id) if item.author_id else None
     return bool(author and author.municipality_id == user.municipality_id)
+
+
+def _reactions_for(
+    db: Session, comment_ids: list[uuid.UUID], user: User
+) -> dict[uuid.UUID, list[ReactionOut]]:
+    """All reactions for a set of comments in one query.
+
+    Fetching per comment would be a query per row on a busy thread.
+    """
+    if not comment_ids:
+        return {}
+    rows = db.execute(
+        select(
+            BoardCommentReaction.comment_id,
+            BoardCommentReaction.emoji,
+            func.count().label("n"),
+            func.bool_or(BoardCommentReaction.user_id == user.id).label("mine"),
+        )
+        .where(BoardCommentReaction.comment_id.in_(comment_ids))
+        .group_by(BoardCommentReaction.comment_id, BoardCommentReaction.emoji)
+    ).all()
+    out: dict[uuid.UUID, list[ReactionOut]] = {}
+    for comment_id, emoji, count, mine in rows:
+        out.setdefault(comment_id, []).append(
+            ReactionOut(emoji=emoji, count=count, mine=bool(mine))
+        )
+    # Stable order so the chips do not jump about between renders.
+    for items in out.values():
+        items.sort(key=lambda r: REACTIONS.index(r.emoji) if r.emoji in REACTIONS else 99)
+    return out
 
 
 def _visible_or_404(item: BoardItem, user: User) -> None:
@@ -328,6 +371,7 @@ def get_item(
         .where(BoardComment.item_id == item.id)
         .order_by(BoardComment.created_at)
     ).all()
+    reactions = _reactions_for(db, [c.id for c in comments], user)
     return BoardItemDetail(
         **base.model_dump(),
         download_url=(
@@ -340,6 +384,7 @@ def get_item(
         ),
         comments=[
             CommentOut(
+                reactions=reactions.get(c.id, []),
                 id=str(c.id),
                 author=_author_ref(db, c.author_id),
                 body=c.body,
@@ -490,3 +535,43 @@ def delete_comment(
     db.delete(comment)
     db.commit()
     return {"ok": True}
+
+
+class ReactionIn(BaseModel):
+    emoji: str
+
+
+@router.post("/{item_id}/comments/{comment_id}/reactions")
+def toggle_reaction(
+    item_id: uuid.UUID,
+    comment_id: uuid.UUID,
+    body: ReactionIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Add or remove one emoji from one comment. Idempotent per (comment, user,
+    emoji), so a double click cannot double-count."""
+    if body.emoji not in REACTIONS:
+        raise HTTPException(status_code=422, detail="unsupported_reaction")
+    item = _get_item_or_404(db, item_id, user)
+    comment = db.get(BoardComment, comment_id)
+    if comment is None or comment.item_id != item.id:
+        raise HTTPException(status_code=404, detail="not_found")
+
+    key = {"comment_id": comment.id, "user_id": user.id, "emoji": body.emoji}
+    existing = db.get(BoardCommentReaction, key)
+    if existing is not None:
+        db.delete(existing)
+        mine = False
+    else:
+        db.add(BoardCommentReaction(**key))
+        mine = True
+    db.commit()
+
+    count = db.scalar(
+        select(func.count()).where(
+            BoardCommentReaction.comment_id == comment.id,
+            BoardCommentReaction.emoji == body.emoji,
+        )
+    ) or 0
+    return {"emoji": body.emoji, "count": count, "mine": mine}

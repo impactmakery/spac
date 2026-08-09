@@ -197,7 +197,8 @@
     "dropBrowse": "או לחצו כדי לבחור קובץ מהמחשב",
     "removeFile": "הסרת הקובץ",
     "reply": "תגובה",
-    "replyPlaceholder": "כתבו תגובה…"
+    "replyPlaceholder": "כתבו תגובה…",
+    "addReaction": "הוספת תגובת אימוג׳י"
   },
   "departmentArea": {
     "filesTab": "קבצים",
