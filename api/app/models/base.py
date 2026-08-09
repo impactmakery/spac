@@ -156,6 +156,11 @@ class Category(Base):
     # the people running the platform. Postgres allows many NULLs under a unique
     # constraint, so leaving it blank never collides.
     name_en: Mapped[str | None] = mapped_column(Text, unique=True)
+    # A palette key such as "rose" or "teal", not a hex value. The interface
+    # owns what each key looks like, so contrast stays controlled and the whole
+    # palette can be restyled without touching stored data. Unset falls back to
+    # a colour derived from the id, which is what every existing category has.
+    color: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

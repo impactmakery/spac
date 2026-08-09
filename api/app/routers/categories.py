@@ -18,12 +18,16 @@ class CategoryIn(BaseModel):
     # Optional: the users are Hebrew-speaking, and the English name is for the
     # people running the platform rather than for anyone using it.
     name_en: str | None = Field(default=None, max_length=80)
+    # A palette key owned by the interface, not a colour value. Constrained to a
+    # slug so a junk value can never reach a stylesheet.
+    color: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9-]{1,23}$")
 
 
 class CategoryOut(BaseModel):
     id: str
     name_he: str
     name_en: str | None
+    color: str | None
     item_count: int
 
 
@@ -40,7 +44,7 @@ def _item_count(db: Session, category_id: uuid.UUID) -> int:
 
 def _out(db: Session, c: Category) -> CategoryOut:
     return CategoryOut(
-        id=str(c.id), name_he=c.name_he, name_en=c.name_en,
+        id=str(c.id), name_he=c.name_he, name_en=c.name_en, color=c.color,
         item_count=_item_count(db, c.id),
     )
 
@@ -71,7 +75,7 @@ def create_category(
         clash = clash | (func.lower(Category.name_en) == english.lower())
     if db.scalar(select(Category).where(clash)):
         raise HTTPException(status_code=409, detail="name_exists")
-    cat = Category(name_he=body.name_he, name_en=english)
+    cat = Category(name_he=body.name_he, name_en=english, color=body.color)
     db.add(cat)
     db.flush()
     record_audit(
@@ -90,9 +94,10 @@ def rename_category(
     db: Session = Depends(get_db),
 ) -> CategoryOut:
     cat = _get_or_404(db, category_id)
-    before = {"name_he": cat.name_he, "name_en": cat.name_en}
+    before = {"name_he": cat.name_he, "name_en": cat.name_en, "color": cat.color}
     cat.name_he = body.name_he
     cat.name_en = (body.name_en or "").strip() or None
+    cat.color = body.color
     record_audit(
         db, actor_id=actor.id, action="category.rename", entity_type="category",
         entity_id=str(cat.id), before=before, after=body.model_dump(),
@@ -139,3 +144,30 @@ def _reparent_items(db: Session, source_id: uuid.UUID, target_id: uuid.UUID) -> 
     )
     assert isinstance(result, CursorResult)
     return result.rowcount or 0
+
+
+@router.delete("/{category_id}")
+def delete_category(
+    category_id: uuid.UUID,
+    actor: User = Depends(require_system_admin),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Delete a category that nothing is filed under.
+
+    Board items reference categories with ON DELETE RESTRICT, so deleting one
+    still in use would either fail at the database or orphan the posts. Merging
+    is the operation for that case, and it already exists — this refuses and
+    says how many items are in the way rather than half-succeeding.
+    """
+    cat = _get_or_404(db, category_id)
+    in_use = _item_count(db, cat.id)
+    if in_use:
+        raise HTTPException(status_code=409, detail="category_in_use")
+    record_audit(
+        db, actor_id=actor.id, action="category.delete", entity_type="category",
+        entity_id=str(cat.id),
+        before={"name_he": cat.name_he, "name_en": cat.name_en, "color": cat.color},
+    )
+    db.delete(cat)
+    db.commit()
+    return {"ok": True}

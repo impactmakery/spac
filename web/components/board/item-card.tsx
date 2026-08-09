@@ -4,7 +4,8 @@ import { FileText, Heart, Link2, MessageCircle, Sparkles } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
-import { categoryTint, type BoardItemRow } from "@/lib/board-types";
+import type { BoardItemRow } from "@/lib/board-types";
+import { categoryColor } from "@/lib/category-colors";
 
 export function CategoryChip({
   category,
@@ -12,7 +13,7 @@ export function CategoryChip({
   category: BoardItemRow["category"];
 }) {
   const locale = useLocale();
-  const tint = categoryTint(category.id);
+  const tint = categoryColor(category.id, category.color);
   return (
     <span
       className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"

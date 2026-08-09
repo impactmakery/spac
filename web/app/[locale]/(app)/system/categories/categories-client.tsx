@@ -5,14 +5,16 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import {
   createCategory,
+  deleteCategory,
   mergeCategory,
   renameCategory,
 } from "@/app/[locale]/(app)/admin-actions";
 import { Dialog } from "@/components/dialog";
 import { PageHeader } from "@/components/page-header";
-import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
+import { Button, Card, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { CategoryRow } from "@/lib/admin-types";
+import { CATEGORY_COLORS, categoryColor } from "@/lib/category-colors";
 
 type DialogState =
   | { kind: "none" }
@@ -27,6 +29,7 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
   const [nameHe, setNameHe] = useState("");
   const [nameEn, setNameEn] = useState("");
+  const [color, setColor] = useState<string | null>(null);
   const [target, setTarget] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -37,14 +40,26 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     if (state.kind === "rename") {
       setNameHe(state.row.name_he);
       setNameEn(state.row.name_en ?? "");
+      setColor(state.row.color);
     } else {
       setNameHe("");
       setNameEn("");
+      setColor(null);
     }
     if (state.kind === "merge") {
       const other = rows.find((r) => r.id !== state.row.id);
       setTarget(other?.id ?? "");
     }
+  }
+
+  async function onDelete(row: CategoryRow) {
+    if (!window.confirm(t("deleteConfirm", { name: label(row) }))) return;
+    const res = await deleteCategory(row.id);
+    if ("error" in res) {
+      window.alert(res.error === "category_in_use" ? t("errInUse") : t("errGeneric"));
+      return;
+    }
+    router.refresh();
   }
 
   async function submit(e: React.FormEvent) {
@@ -53,9 +68,9 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     setError(null);
     let res;
     const english = nameEn.trim() || null;
-    if (dialog.kind === "add") res = await createCategory(nameHe, english);
+    if (dialog.kind === "add") res = await createCategory(nameHe, english, color);
     else if (dialog.kind === "rename")
-      res = await renameCategory(dialog.row.id, nameHe, english);
+      res = await renameCategory(dialog.row.id, nameHe, english, color);
     else if (dialog.kind === "merge") res = await mergeCategory(dialog.row.id, target);
     else return;
     setBusy(false);
@@ -95,13 +110,20 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
         <div className="space-y-3">
           {rows.map((row) => (
             <Card key={row.id} className="flex items-center justify-between gap-4 p-4">
-              <div>
+              <div className="flex items-center gap-3">
+                <span
+                  aria-hidden
+                  className="size-4 shrink-0 rounded-full"
+                  style={{ backgroundColor: categoryColor(row.id, row.color).dot }}
+                />
+                <div>
                 <p className="font-semibold text-foreground">{label(row)}</p>
                 <p className="text-xs text-muted-foreground">
                   {row.name_he}
                   {row.name_en && ` · ${row.name_en}`} ·{" "}
                   {t("items", { count: row.item_count })}
                 </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <Button
@@ -111,13 +133,25 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
                 >
                   {t("rename")}
                 </Button>
-                {rows.length > 1 && (
+                {rows.length > 1 && row.item_count > 0 && (
                   <Button
                     variant="ghost"
-                    className="px-2 py-1 text-destructive"
+                    className="px-2 py-1"
                     onClick={() => openDialog({ kind: "merge", row })}
                   >
                     {t("merge")}
+                  </Button>
+                )}
+                {/* Deleting is only offered when nothing is filed under it —
+                    posts reference categories, so anything else would either
+                    fail or orphan them. Merge is the operation for that. */}
+                {row.item_count === 0 && (
+                  <Button
+                    variant="ghost"
+                    className="px-2 py-1 text-destructive"
+                    onClick={() => onDelete(row)}
+                  >
+                    {t("delete")}
                   </Button>
                 )}
               </div>
@@ -181,6 +215,47 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
                   value={nameEn}
                   onChange={(e) => setNameEn(e.target.value)}
                 />
+              </div>
+              <div>
+                <Label>{t("colour")}</Label>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {/* Automatic keeps the colour derived from the id, which is
+                      what every category had before the palette existed. */}
+                  <button
+                    type="button"
+                    title={t("colourAuto")}
+                    aria-label={t("colourAuto")}
+                    aria-pressed={color === null}
+                    onClick={() => setColor(null)}
+                    className={cn(
+                      "size-7 rounded-full border-2 text-[10px] font-bold",
+                      color === null
+                        ? "border-foreground"
+                        : "border-transparent hover:border-border",
+                    )}
+                    style={{
+                      background:
+                        "conic-gradient(hsl(0 70% 70%), hsl(60 70% 70%), hsl(120 70% 70%), hsl(180 70% 70%), hsl(240 70% 70%), hsl(300 70% 70%), hsl(360 70% 70%))",
+                    }}
+                  />
+                  {CATEGORY_COLORS.map((c) => (
+                    <button
+                      key={c.key}
+                      type="button"
+                      title={c.key}
+                      aria-label={c.key}
+                      aria-pressed={color === c.key}
+                      onClick={() => setColor(c.key)}
+                      className={cn(
+                        "size-7 rounded-full border-2",
+                        color === c.key
+                          ? "border-foreground"
+                          : "border-transparent hover:border-border",
+                      )}
+                      style={{ backgroundColor: c.dot }}
+                    />
+                  ))}
+                </div>
               </div>
             </>
           )}

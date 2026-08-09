@@ -40,18 +40,31 @@ export async function setMunicipalityActive(id: string, active: boolean) {
 
 // --- system admin: categories ---
 
-export async function createCategory(name_he: string, name_en: string | null) {
+export async function createCategory(
+  name_he: string,
+  name_en: string | null,
+  color: string | null,
+) {
   return call("/api/categories", {
     method: "POST",
-    body: JSON.stringify({ name_he, name_en }),
+    body: JSON.stringify({ name_he, name_en, color }),
   });
 }
 
-export async function renameCategory(id: string, name_he: string, name_en: string | null) {
+export async function renameCategory(
+  id: string,
+  name_he: string,
+  name_en: string | null,
+  color: string | null,
+) {
   return call(`/api/categories/${id}`, {
     method: "PATCH",
-    body: JSON.stringify({ name_he, name_en }),
+    body: JSON.stringify({ name_he, name_en, color }),
   });
+}
+
+export async function deleteCategory(id: string) {
+  return call(`/api/categories/${id}`, { method: "DELETE" });
 }
 
 export async function mergeCategory(sourceId: string, targetId: string) {

@@ -281,7 +281,13 @@
     "nameExists": "A category with this name already exists",
     "empty": "No categories yet",
     "emptyBody": "Add categories to organize the boards.",
-    "nameEnOptional": "English name (optional)"
+    "nameEnOptional": "English name (optional)",
+    "colour": "Colour",
+    "colourAuto": "Automatic",
+    "delete": "Delete",
+    "deleteConfirm": "Delete the category “{name}”? This cannot be undone.",
+    "errInUse": "This category still has posts filed under it. Merge it into another category instead.",
+    "errGeneric": "That did not work. Please try again."
   },
   "departmentsAdmin": {
     "title": "Departments",

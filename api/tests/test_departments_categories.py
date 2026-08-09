@@ -178,3 +178,83 @@ def test_english_name_can_be_added_later(client, world):
     )
     assert res.status_code == 200
     assert res.json()["name_en"] == "Environment"
+
+
+# --- colour and deletion ------------------------------------------------------
+
+
+def test_category_colour_round_trips(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    created = client.post(
+        "/api/categories",
+        json={"name_he": "חינוך", "color": "teal"},
+        headers=sys_headers,
+    )
+    assert created.status_code == 201, created.text
+    assert created.json()["color"] == "teal"
+
+    cid = created.json()["id"]
+    changed = client.patch(
+        f"/api/categories/{cid}",
+        json={"name_he": "חינוך", "color": "amber"},
+        headers=sys_headers,
+    )
+    assert changed.json()["color"] == "amber"
+
+    # clearing it returns to the colour derived from the id
+    cleared = client.patch(
+        f"/api/categories/{cid}", json={"name_he": "חינוך"}, headers=sys_headers
+    )
+    assert cleared.json()["color"] is None
+
+
+def test_colour_must_be_a_palette_key_not_a_style(client, world):
+    """The value reaches a stylesheet, so it is a slug and nothing else."""
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    for bad in ["#ff0000", "red; background:url(x)", "RED", "a" * 40]:
+        res = client.post(
+            "/api/categories",
+            json={"name_he": f"בדיקה {bad[:4]}", "color": bad},
+            headers=sys_headers,
+        )
+        assert res.status_code == 422, f"{bad!r} was accepted"
+
+
+def test_unused_category_can_be_deleted(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    cid = client.post(
+        "/api/categories", json={"name_he": "זמני"}, headers=sys_headers
+    ).json()["id"]
+
+    assert client.delete(f"/api/categories/{cid}", headers=sys_headers).status_code == 200
+    assert all(c["id"] != cid for c in client.get("/api/categories", headers=sys_headers).json())
+
+
+def test_category_in_use_is_refused_rather_than_orphaning_posts(client, db, world):
+    """Posts reference categories, so deleting one in use would either fail at
+    the database or leave posts pointing at nothing. Merge exists for that."""
+    from app.models import BoardItem
+
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    cid = client.post(
+        "/api/categories", json={"name_he": "בשימוש"}, headers=sys_headers
+    ).json()["id"]
+
+    import uuid as _uuid
+
+    db.add(BoardItem(title="A post", category_id=_uuid.UUID(cid), scope="global"))
+    db.commit()
+
+    res = client.delete(f"/api/categories/{cid}", headers=sys_headers)
+    assert res.status_code == 409
+    assert res.json()["detail"] == "category_in_use"
+
+
+def test_only_a_system_admin_may_delete(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    cid = client.post(
+        "/api/categories", json={"name_he": "מוגנת"}, headers=sys_headers
+    ).json()["id"]
+
+    muni = auth(client, "admin1@x.org")
+    assert client.delete(f"/api/categories/{cid}", headers=muni).status_code in (403, 404)

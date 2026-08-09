@@ -37,6 +37,7 @@ class CategoryRef(BaseModel):
     id: str
     name_he: str
     name_en: str | None
+    color: str | None = None
 
 
 class AuthorRef(BaseModel):
@@ -132,7 +133,9 @@ def _out(db: Session, item: BoardItem, user: User) -> BoardItemOut:
         id=str(item.id),
         title=item.title,
         description=item.description,
-        category=CategoryRef(id=str(cat.id), name_he=cat.name_he, name_en=cat.name_en),
+        category=CategoryRef(
+            id=str(cat.id), name_he=cat.name_he, name_en=cat.name_en, color=cat.color
+        ),
         scope=item.scope,
         author=_author_ref(db, item.author_id),
         link_url=item.link_url,

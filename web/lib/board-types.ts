@@ -2,6 +2,7 @@ export interface CategoryRef {
   id: string;
   name_he: string;
   name_en: string | null;
+  color: string | null;
 }
 
 export interface AuthorRef {
@@ -78,11 +79,3 @@ export interface DeptPost {
 }
 
 /** Deterministic pastel tint per category, like the prototype's category chips. */
-export function categoryTint(categoryId: string): { bg: string; fg: string } {
-  let hash = 0;
-  for (const ch of categoryId) hash = (hash * 31 + ch.charCodeAt(0)) % 360;
-  return {
-    bg: `hsl(${hash} 70% 93%)`,
-    fg: `hsl(${hash} 55% 30%)`,
-  };
-}

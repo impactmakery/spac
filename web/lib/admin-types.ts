@@ -12,6 +12,7 @@ export interface CategoryRow {
   id: string;
   name_he: string;
   name_en: string | null;
+  color: string | null;
   item_count: number;
 }
 
