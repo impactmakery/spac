@@ -13,6 +13,8 @@ import { Button, Card, FieldError } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatBytes } from "@/lib/format";
 import type { KbDocDetail } from "@/lib/kb-types";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 export function DocClient({
   doc,
@@ -24,6 +26,9 @@ export function DocClient({
   canManage: boolean;
 }) {
   const t = useTranslations("knowledge");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -51,8 +56,10 @@ export function DocClient({
   }
 
   async function onDelete() {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteKbDocument(doc.id);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteKbDocument(doc.id);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.push("/knowledge");
     router.refresh();
   }

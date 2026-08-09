@@ -15,6 +15,8 @@ import { Button, Card, FieldError, Input, Label, Select, cn } from "@/components
 import { useRouter } from "@/i18n/navigation";
 import type { CategoryRow } from "@/lib/admin-types";
 import { CATEGORY_COLORS, categoryColor } from "@/lib/category-colors";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 type DialogState =
   | { kind: "none" }
@@ -24,6 +26,9 @@ type DialogState =
 
 export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
   const t = useTranslations("categories");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const locale = useLocale();
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
@@ -53,12 +58,13 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
   }
 
   async function onDelete(row: CategoryRow) {
-    if (!window.confirm(t("deleteConfirm", { name: label(row) }))) return;
+    if (!(await confirm({ title: t("deleteConfirm", { name: label(row) }) }))) return;
     const res = await deleteCategory(row.id);
     if ("error" in res) {
-      window.alert(res.error === "category_in_use" ? t("errInUse") : t("errGeneric"));
+      toast(res.error === "category_in_use" ? t("errInUse") : t("errGeneric"));
       return;
     }
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 

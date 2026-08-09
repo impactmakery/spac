@@ -12,7 +12,11 @@
     "back": "Back",
     "error": "Something went wrong. Please try again.",
     "comingSoon": "Coming soon",
-    "comingSoonBody": "This screen will be available in the next stage of development."
+    "comingSoonBody": "This screen will be available in the next stage of development.",
+    "deleted": "Deleted",
+    "saved": "Saved",
+    "published": "Published",
+    "updated": "Updated"
   },
   "auth": {
     "login": {

@@ -7,6 +7,8 @@ import { Card } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
 import { categoryColor } from "@/lib/category-colors";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 export function CategoryChip({
   category,
@@ -27,12 +29,17 @@ export function CategoryChip({
 
 export function ItemCard({ item }: { item: BoardItemRow }) {
   const t = useTranslations("board");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
 
   async function onDelete() {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteBoardItem(item.id);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteBoardItem(item.id);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 

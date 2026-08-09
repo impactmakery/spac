@@ -32,6 +32,8 @@ import type {
   CategoryRef,
 } from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 export function ItemClient({
   item,
@@ -47,6 +49,9 @@ export function ItemClient({
   startEditing?: boolean;
 }) {
   const t = useTranslations("board");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const format = useFormatter();
   const locale = useLocale();
   const router = useRouter();
@@ -101,13 +106,17 @@ export function ItemClient({
   }
 
   async function onDeleteComment(commentId: string) {
-    await deleteComment(item.id, commentId);
+    const res = await deleteComment(item.id, commentId);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 
   async function onDeleteItem() {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteBoardItem(item.id);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteBoardItem(item.id);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.push(backHref);
     router.refresh();
   }

@@ -18,6 +18,8 @@ import { Linkify } from "@/components/linkify";
 import { useRouter } from "@/i18n/navigation";
 import type { DeptFile, DeptPost } from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 export function DepartmentClient({
   deptId,
@@ -33,6 +35,9 @@ export function DepartmentClient({
   apiBase: string;
 }) {
   const t = useTranslations("departmentArea");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const tk = useTranslations("knowledge");
   const format = useFormatter();
   const router = useRouter();
@@ -61,8 +66,10 @@ export function DepartmentClient({
   }
 
   async function onDeleteFile(fileId: string) {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteDepartmentFile(deptId, fileId);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteDepartmentFile(deptId, fileId);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 
@@ -79,8 +86,10 @@ export function DepartmentClient({
   }
 
   async function onDeletePost(postId: string) {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteDepartmentPost(deptId, postId);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteDepartmentPost(deptId, postId);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 

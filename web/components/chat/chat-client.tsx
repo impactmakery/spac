@@ -12,6 +12,7 @@ import { LogoChip } from "@/components/logo";
 import { Button, Card, cn } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { ChatMessage, Citation, ConversationRow } from "@/lib/chat-types";
+import { useConfirm } from "@/components/confirm";
 
 interface Pending {
   content: string;
@@ -30,6 +31,7 @@ export function ChatClient({
   sampleQuestions: string[];
 }) {
   const t = useTranslations("chat");
+  const confirm = useConfirm();
   const router = useRouter();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -146,7 +148,7 @@ export function ChatClient({
   }
 
   async function onDelete(convo: ConversationRow) {
-    if (!window.confirm(t("deleteConfirm"))) return;
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
     await deleteConversation(convo.id);
     if (convo.id === conversationId) router.push("/chat");
     router.refresh();

@@ -10,11 +10,16 @@ import { Button, FieldError } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import { formatBytes } from "@/lib/format";
 import type { KbDocRow } from "@/lib/kb-types";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 const MAX_FILES = 10;
 
 export function KbAdminClient({ docs }: { docs: KbDocRow[] }) {
   const t = useTranslations("knowledge");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +55,10 @@ export function KbAdminClient({ docs }: { docs: KbDocRow[] }) {
   }
 
   async function onDelete(doc: KbDocRow) {
-    if (!window.confirm(t("deleteConfirm"))) return;
-    await deleteKbDocument(doc.id);
+    if (!(await confirm({ title: t("deleteConfirm") }))) return;
+    const res = await deleteKbDocument(doc.id);
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("deleted"), "success");
     router.refresh();
   }
 

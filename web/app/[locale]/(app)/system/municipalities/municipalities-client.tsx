@@ -14,6 +14,8 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Button, Card, FieldError, Input, Label } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { MunicipalityRow } from "@/lib/admin-types";
+import { useConfirm } from "@/components/confirm";
+import { useToast } from "@/components/toast";
 
 type DialogState =
   | { kind: "none" }
@@ -23,6 +25,9 @@ type DialogState =
 
 export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
   const t = useTranslations("municipalities");
+  const confirm = useConfirm();
+  const toast = useToast();
+  const tc = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
   const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
@@ -68,8 +73,15 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
   }
 
   async function toggleActive(row: MunicipalityRow) {
-    if (row.status === "active" && !window.confirm(t("deactivateConfirm"))) return;
-    await setMunicipalityActive(row.id, row.status !== "active");
+    if (
+      row.status === "active" &&
+      !(await confirm({ title: t("deactivateConfirm"), destructive: false }))
+    ) {
+      return;
+    }
+    const res = await setMunicipalityActive(row.id, row.status !== "active");
+    if ("error" in res) return toast(tc("error"));
+    toast(tc("updated"), "success");
     router.refresh();
   }
 

@@ -12,7 +12,11 @@
     "back": "חזרה",
     "error": "משהו השתבש. נסו שוב.",
     "comingSoon": "בקרוב",
-    "comingSoonBody": "המסך הזה יהיה זמין בשלב הבא של הפיתוח."
+    "comingSoonBody": "המסך הזה יהיה זמין בשלב הבא של הפיתוח.",
+    "deleted": "נמחק",
+    "saved": "נשמר",
+    "published": "פורסם",
+    "updated": "עודכן"
   },
   "auth": {
     "login": {

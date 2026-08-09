@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/page-header";
 import { Badge, Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { AdminUserRow, DepartmentRow, MunicipalityRow } from "@/lib/admin-types";
+import { useConfirm } from "@/components/confirm";
 
 type DialogState =
   | { kind: "none" }
@@ -37,6 +38,7 @@ export function UsersTable({
   municipalities: MunicipalityRow[];
 }) {
   const t = useTranslations("usersAdmin");
+  const confirm = useConfirm();
   const format = useFormatter();
   const router = useRouter();
 
@@ -316,9 +318,15 @@ export function UsersTable({
                           <Button
                             variant="ghost"
                             className="px-2 py-1 text-destructive"
-                            onClick={() => {
-                              if (window.confirm(t("deactivateConfirm")))
+                            onClick={async () => {
+                              if (
+                                await confirm({
+                                  title: t("deactivateConfirm"),
+                                  destructive: false,
+                                })
+                              ) {
                                 rowAction(() => setUserActive(row.id, false));
+                              }
                             }}
                           >
                             {t("deactivate")}
