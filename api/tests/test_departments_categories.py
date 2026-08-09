@@ -129,3 +129,52 @@ def test_categories_crud_and_merge(client, db, world):
     assert r.status_code == 200
     rows = client.get("/api/categories", headers=sys_headers).json()
     assert [c["name_en"] for c in rows] == ["Guides"]
+
+
+# --- Hebrew-only categories ---------------------------------------------------
+# The users are Hebrew-speaking; the English name exists for whoever runs the
+# platform, so it must never be the thing that blocks creating a category.
+
+
+def test_category_can_be_created_with_hebrew_only(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    res = client.post("/api/categories", json={"name_he": "חינוך"}, headers=sys_headers)
+    assert res.status_code == 201, res.text
+    assert res.json()["name_he"] == "חינוך"
+    assert res.json()["name_en"] is None
+
+
+def test_blank_english_is_stored_as_absent_not_empty(client, world):
+    """Empty strings would collide on the unique index the moment a second
+    category was created without an English name."""
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    first = client.post(
+        "/api/categories", json={"name_he": "רווחה", "name_en": "   "}, headers=sys_headers
+    )
+    second = client.post(
+        "/api/categories", json={"name_he": "תברואה", "name_en": ""}, headers=sys_headers
+    )
+    assert first.status_code == 201 and second.status_code == 201, second.text
+    assert first.json()["name_en"] is None and second.json()["name_en"] is None
+
+
+def test_duplicate_hebrew_name_is_still_refused(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    client.post("/api/categories", json={"name_he": "תקציב"}, headers=sys_headers)
+    again = client.post("/api/categories", json={"name_he": "תקציב"}, headers=sys_headers)
+    assert again.status_code == 409
+
+
+def test_english_name_can_be_added_later(client, world):
+    sys_headers = auth(client, "root@x.org", "root-password-1")
+    created = client.post(
+        "/api/categories", json={"name_he": "סביבה"}, headers=sys_headers
+    )
+    cid = created.json()["id"]
+    res = client.patch(
+        f"/api/categories/{cid}",
+        json={"name_he": "סביבה", "name_en": "Environment"},
+        headers=sys_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["name_en"] == "Environment"

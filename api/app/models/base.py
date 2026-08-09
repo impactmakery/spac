@@ -152,7 +152,10 @@ class Category(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name_he: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
-    name_en: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    # Optional: the users are Hebrew-speaking, and the English name exists for
+    # the people running the platform. Postgres allows many NULLs under a unique
+    # constraint, so leaving it blank never collides.
+    name_en: Mapped[str | None] = mapped_column(Text, unique=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )

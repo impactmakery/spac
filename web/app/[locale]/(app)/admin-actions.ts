@@ -40,14 +40,14 @@ export async function setMunicipalityActive(id: string, active: boolean) {
 
 // --- system admin: categories ---
 
-export async function createCategory(name_he: string, name_en: string) {
+export async function createCategory(name_he: string, name_en: string | null) {
   return call("/api/categories", {
     method: "POST",
     body: JSON.stringify({ name_he, name_en }),
   });
 }
 
-export async function renameCategory(id: string, name_he: string, name_en: string) {
+export async function renameCategory(id: string, name_he: string, name_en: string | null) {
   return call(`/api/categories/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ name_he, name_en }),

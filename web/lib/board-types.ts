@@ -1,7 +1,7 @@
 export interface CategoryRef {
   id: string;
   name_he: string;
-  name_en: string;
+  name_en: string | null;
 }
 
 export interface AuthorRef {

@@ -281,7 +281,7 @@ export function ItemClient({
             >
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {locale === "he" ? c.name_he : c.name_en}
+                  {locale === "he" ? c.name_he : (c.name_en ?? c.name_he)}
                 </option>
               ))}
             </Select>

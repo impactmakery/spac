@@ -11,7 +11,7 @@ export interface MunicipalityRow {
 export interface CategoryRow {
   id: string;
   name_he: string;
-  name_en: string;
+  name_en: string | null;
   item_count: number;
 }
 

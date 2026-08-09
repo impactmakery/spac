@@ -36,7 +36,7 @@ MAX_PROMPT = 20000  # a shared prompt or agent brief, generous by design
 class CategoryRef(BaseModel):
     id: str
     name_he: str
-    name_en: str
+    name_en: str | None
 
 
 class AuthorRef(BaseModel):

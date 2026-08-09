@@ -40,7 +40,8 @@ export function PublishDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const label = (c: CategoryRef) => (locale === "he" ? c.name_he : c.name_en);
+  const label = (c: CategoryRef) =>
+    locale === "he" ? c.name_he : (c.name_en ?? c.name_he);
 
   function reset() {
     setTitle("");

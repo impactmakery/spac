@@ -36,7 +36,7 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     setError(null);
     if (state.kind === "rename") {
       setNameHe(state.row.name_he);
-      setNameEn(state.row.name_en);
+      setNameEn(state.row.name_en ?? "");
     } else {
       setNameHe("");
       setNameEn("");
@@ -52,9 +52,10 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     setBusy(true);
     setError(null);
     let res;
-    if (dialog.kind === "add") res = await createCategory(nameHe, nameEn);
+    const english = nameEn.trim() || null;
+    if (dialog.kind === "add") res = await createCategory(nameHe, english);
     else if (dialog.kind === "rename")
-      res = await renameCategory(dialog.row.id, nameHe, nameEn);
+      res = await renameCategory(dialog.row.id, nameHe, english);
     else if (dialog.kind === "merge") res = await mergeCategory(dialog.row.id, target);
     else return;
     setBusy(false);
@@ -66,7 +67,8 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     router.refresh();
   }
 
-  const label = (row: CategoryRow) => (locale === "he" ? row.name_he : row.name_en);
+  const label = (row: CategoryRow) =>
+    locale === "he" ? row.name_he : (row.name_en ?? row.name_he);
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
@@ -96,7 +98,9 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
               <div>
                 <p className="font-semibold text-foreground">{label(row)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {row.name_he} · {row.name_en} · {t("items", { count: row.item_count })}
+                  {row.name_he}
+                  {row.name_en && ` · ${row.name_en}`} ·{" "}
+                  {t("items", { count: row.item_count })}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -169,10 +173,9 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
                 />
               </div>
               <div>
-                <Label htmlFor="nameEn">{t("nameEn")}</Label>
+                <Label htmlFor="nameEn">{t("nameEnOptional")}</Label>
                 <Input
                   id="nameEn"
-                  required
                   dir="ltr"
                   maxLength={80}
                   value={nameEn}

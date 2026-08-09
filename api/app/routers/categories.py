@@ -15,13 +15,15 @@ router = APIRouter(prefix="/api/categories", tags=["categories"])
 
 class CategoryIn(BaseModel):
     name_he: str = Field(min_length=1, max_length=80)
-    name_en: str = Field(min_length=1, max_length=80)
+    # Optional: the users are Hebrew-speaking, and the English name is for the
+    # people running the platform rather than for anyone using it.
+    name_en: str | None = Field(default=None, max_length=80)
 
 
 class CategoryOut(BaseModel):
     id: str
     name_he: str
-    name_en: str
+    name_en: str | None
     item_count: int
 
 
@@ -63,15 +65,13 @@ def create_category(
     actor: User = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ) -> CategoryOut:
-    exists = db.scalar(
-        select(Category).where(
-            (func.lower(Category.name_he) == body.name_he.lower())
-            | (func.lower(Category.name_en) == body.name_en.lower())
-        )
-    )
-    if exists:
+    english = (body.name_en or "").strip() or None
+    clash = func.lower(Category.name_he) == body.name_he.lower()
+    if english:
+        clash = clash | (func.lower(Category.name_en) == english.lower())
+    if db.scalar(select(Category).where(clash)):
         raise HTTPException(status_code=409, detail="name_exists")
-    cat = Category(name_he=body.name_he, name_en=body.name_en)
+    cat = Category(name_he=body.name_he, name_en=english)
     db.add(cat)
     db.flush()
     record_audit(
@@ -92,7 +92,7 @@ def rename_category(
     cat = _get_or_404(db, category_id)
     before = {"name_he": cat.name_he, "name_en": cat.name_en}
     cat.name_he = body.name_he
-    cat.name_en = body.name_en
+    cat.name_en = (body.name_en or "").strip() or None
     record_audit(
         db, actor_id=actor.id, action="category.rename", entity_type="category",
         entity_id=str(cat.id), before=before, after=body.model_dump(),

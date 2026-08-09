@@ -279,7 +279,8 @@
     "mergeConfirm": "Merge",
     "nameExists": "A category with this name already exists",
     "empty": "No categories yet",
-    "emptyBody": "Add categories to organize the boards."
+    "emptyBody": "Add categories to organize the boards.",
+    "nameEnOptional": "English name (optional)"
   },
   "departmentsAdmin": {
     "title": "Departments",

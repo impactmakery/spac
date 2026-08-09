@@ -18,7 +18,7 @@ export function CategoryChip({
       className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
       style={{ backgroundColor: tint.bg, color: tint.fg }}
     >
-      {locale === "he" ? category.name_he : category.name_en}
+      {locale === "he" ? category.name_he : (category.name_en ?? category.name_he)}
     </span>
   );
 }
