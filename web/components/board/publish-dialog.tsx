@@ -99,6 +99,21 @@ export function PublishDialog({
     onPublished();
   }
 
+  // Category is required, so an empty list makes the form unsubmittable. Saying
+  // so beats presenting an empty dropdown and a validation error on submit.
+  if (open && categories.length === 0) {
+    return (
+      <Dialog open={open} onClose={onClose} title={t("publishTitle")}>
+        <p className="text-sm text-muted-foreground">{t("noCategories")}</p>
+        <div className="mt-4 flex justify-end">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            {t("close")}
+          </Button>
+        </div>
+      </Dialog>
+    );
+  }
+
   return (
     <Dialog open={open} onClose={onClose} title={t("publishTitle")}>
       <form onSubmit={submit} className="space-y-4">

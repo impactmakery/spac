@@ -182,14 +182,16 @@
     "externalContinue": "המשך לאתר",
     "cancel": "ביטול",
     "byAuthor": "{name} · {municipality}",
-    "typePrompt": "פרומפט / סוכן",
-    "promptPlaceholder": "הדביקו כאן את הפרומפט או את הוראות הסוכן…",
+    "typePrompt": "טקסט",
+    "promptPlaceholder": "הדביקו כאן פרומפט, הוראות לסוכן, או כל טקסט ששווה לשתף…",
     "promptLinkOptional": "קישור לסוכן (לא חובה)",
     "fileHint": "כל סוג קובץ, עד 25 מ\"ב.",
     "errPromptLength": "הפרומפט ארוך מדי.",
-    "promptHeading": "פרומפט",
+    "promptHeading": "טקסט",
     "copyPrompt": "העתקה",
-    "copied": "הועתק"
+    "copied": "הועתק",
+    "noCategories": "עדיין לא הוגדרו קטגוריות, וכל פרסום מחייב קטגוריה. מנהל המערכת יכול להוסיף אותן במסך מערכת ← קטגוריות.",
+    "close": "סגירה"
   },
   "departmentArea": {
     "filesTab": "קבצים",

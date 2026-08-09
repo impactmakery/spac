@@ -182,14 +182,16 @@
     "externalContinue": "Continue to site",
     "cancel": "Cancel",
     "byAuthor": "{name} · {municipality}",
-    "typePrompt": "Prompt / agent",
-    "promptPlaceholder": "Paste the prompt or the agent's instructions here…",
+    "typePrompt": "Text",
+    "promptPlaceholder": "Paste a prompt, agent instructions, or any text worth sharing…",
     "promptLinkOptional": "Link to the agent (optional)",
     "fileHint": "Any file type, up to 25 MB.",
     "errPromptLength": "The prompt is too long.",
-    "promptHeading": "Prompt",
+    "promptHeading": "Text",
     "copyPrompt": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "noCategories": "No categories have been set up yet, and every post needs one. A system administrator can add them under System → Categories.",
+    "close": "Close"
   },
   "departmentArea": {
     "filesTab": "Files",
