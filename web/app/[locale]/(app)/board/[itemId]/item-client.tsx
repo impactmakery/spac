@@ -30,10 +30,14 @@ export function ItemClient({
   item,
   categories,
   apiBase,
+  startEditing = false,
 }: {
   item: BoardItemDetail;
   categories: CategoryRef[];
   apiBase: string;
+  /** Set by ?edit=1, so the edit action on a board card lands straight in the
+   *  form rather than making the user find the button again. */
+  startEditing?: boolean;
 }) {
   const t = useTranslations("board");
   const format = useFormatter();
@@ -44,7 +48,7 @@ export function ItemClient({
   const [likeCount, setLikeCount] = useState(item.like_count);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(startEditing && item.can_edit);
   const [externalOpen, setExternalOpen] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description ?? "");

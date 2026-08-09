@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "@/i18n/navigation";
 import { publishBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Dialog } from "@/components/dialog";
+import { FileDrop } from "@/components/board/file-drop";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import type { CategoryRef } from "@/lib/board-types";
 
@@ -213,16 +214,8 @@ export function PublishDialog({
             />
           )}
           {mode === "file" && (
-            <>
-              {/* No `accept` filter: any file type may be shared. */}
-              <input
-                id="file"
-                type="file"
-                className="w-full text-sm"
-                onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-              />
-              <p className="mt-1 text-xs text-muted-foreground">{t("fileHint")}</p>
-            </>
+            /* No type filter: any file may be shared. */
+            <FileDrop file={file} onFile={setFile} hint={t("fileHint")} />
           )}
           {mode === "prompt" && (
             <div className="space-y-2">

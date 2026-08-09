@@ -5,8 +5,10 @@ import { ItemClient } from "./item-client";
 
 export default async function BoardItemPage({
   params,
+  searchParams,
 }: PageProps<"/[locale]/board/[itemId]">) {
   const { itemId } = await params;
+  const sp = await searchParams;
   let item: BoardItemDetail;
   try {
     item = await apiFetch<BoardItemDetail>(`/api/board-items/${itemId}`);
@@ -20,6 +22,7 @@ export default async function BoardItemPage({
       item={item}
       categories={categories}
       apiBase={process.env.API_BASE_URL ?? ""}
+      startEditing={sp.edit === "1"}
     />
   );
 }

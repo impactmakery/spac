@@ -192,7 +192,10 @@
     "copied": "Copied",
     "noCategories": "No categories have been set up yet, and every post needs one. A system administrator can add them under System → Categories.",
     "close": "Close",
-    "addCategory": "Add category"
+    "addCategory": "Add category",
+    "dropTitle": "Drag a file here",
+    "dropBrowse": "or click to choose one from your computer",
+    "removeFile": "Remove file"
   },
   "departmentArea": {
     "filesTab": "Files",

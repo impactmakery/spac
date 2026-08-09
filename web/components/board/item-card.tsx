@@ -1,9 +1,10 @@
 "use client";
 
-import { FileText, Heart, Link2, MessageCircle, Sparkles } from "lucide-react";
+import { FileText, Heart, Link2, MessageCircle, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { deleteBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Card } from "@/components/ui";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
 import { categoryColor } from "@/lib/category-colors";
 
@@ -27,10 +28,44 @@ export function CategoryChip({
 export function ItemCard({ item }: { item: BoardItemRow }) {
   const t = useTranslations("board");
   const format = useFormatter();
+  const router = useRouter();
+
+  async function onDelete() {
+    if (!window.confirm(t("deleteConfirm"))) return;
+    await deleteBoardItem(item.id);
+    router.refresh();
+  }
 
   return (
     <Card className="flex flex-col p-5 transition-shadow hover:shadow-md">
-      <CategoryChip category={item.category} />
+      <div className="flex items-start justify-between gap-2">
+        <CategoryChip category={item.category} />
+        {/* Editing and deleting from the board itself: reaching the item page
+            first was an extra step for the person who wrote the post. */}
+        <div className="flex shrink-0 gap-1">
+          {item.can_edit && (
+            <Link
+              href={`/board/${item.id}?edit=1`}
+              aria-label={t("edit")}
+              title={t("edit")}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <Pencil className="size-4" />
+            </Link>
+          )}
+          {item.can_delete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={t("delete")}
+              title={t("delete")}
+              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive"
+            >
+              <Trash2 className="size-4" />
+            </button>
+          )}
+        </div>
+      </div>
       <Link href={`/board/${item.id}`} className="mt-3 block">
         <h3 className="font-semibold text-foreground hover:underline">{item.title}</h3>
         {item.description && (
