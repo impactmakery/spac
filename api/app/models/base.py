@@ -201,7 +201,8 @@ class Chunk(Base):
     __tablename__ = "chunks"
     __table_args__ = (
         CheckConstraint(
-            "source_type IN ('kb','board','department')", name="ck_chunks_source_type"
+            "source_type IN ('kb','board','department','comment')",
+            name="ck_chunks_source_type",
         ),
         CheckConstraint(
             "visibility IN ('global','municipality','department')",

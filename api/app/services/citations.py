@@ -5,7 +5,13 @@ from typing import TypedDict
 
 from sqlalchemy.orm import Session
 
-from app.models import BoardItem, DepartmentFile, DepartmentPost, KbDocument
+from app.models import (
+    BoardComment,
+    BoardItem,
+    DepartmentFile,
+    DepartmentPost,
+    KbDocument,
+)
 from app.rag.retrieval import RetrievedChunk
 
 
@@ -47,6 +53,14 @@ def _resolve(db: Session, chunk: RetrievedChunk) -> tuple[str | None, str]:
     if chunk.source_type == "board":
         item = db.get(BoardItem, chunk.source_id)
         return (item.title if item else None), f"/board/{chunk.source_id}"
+    if chunk.source_type == "comment":
+        # A comment cites the post it belongs to: the post is where the reader
+        # needs to land, and a comment has no page of its own.
+        comment = db.get(BoardComment, chunk.source_id)
+        if comment is None:
+            return None, ""
+        item = db.get(BoardItem, comment.item_id)
+        return (item.title if item else None), f"/board/{comment.item_id}"
     if chunk.source_type == "department":
         file = db.get(DepartmentFile, chunk.source_id)
         if file is not None:

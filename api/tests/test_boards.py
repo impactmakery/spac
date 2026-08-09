@@ -624,3 +624,90 @@ def test_a_file_attached_to_a_post_is_readable_by_the_assistant(
     assert any("Mondays and Thursdays" in h.content for h in hits), (
         "the attachment's contents were not indexed"
     )
+
+
+# --- comments as knowledge ----------------------------------------------------
+
+
+def test_a_comment_is_answerable_and_cites_its_post(client, db, world):
+    """Corrections live in the replies — 'that form was replaced' — and were
+    invisible to the assistant until comments were indexed."""
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+    from app.services.citations import build_citations
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world, title="Procurement forms").json()["id"]
+    client.post(f"/api/board-items/{item_id}/comments",
+                json={"body": "Note: form 7Q was replaced by form 8R in March"},
+                headers=headers)
+    run_pending_jobs(db)
+
+    user = db.query(User).filter_by(email="u2@x.org").one()
+    q = "form 8R replaced"
+    [vec] = get_embedding_provider().embed([q])
+    hits = retrieve(db, query_embedding=vec, user=user, query_text=q)
+    assert any("form 8R" in h.content for h in hits), "the comment was not indexed"
+
+    # the citation points at the post, since a comment has no page of its own
+    cites = build_citations(db, [h for h in hits if h.source_type == "comment"])
+    assert cites and cites[0]["href"] == f"/board/{item_id}"
+
+
+def test_a_comment_never_reaches_further_than_its_post(client, db, world):
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+    from app.rag.retrieval import retrieve
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world, title="Internal note",
+                           destination="municipality").json()["id"]
+    client.post(f"/api/board-items/{item_id}/comments",
+                json={"body": "City One uses reference 9K internally"}, headers=headers)
+    run_pending_jobs(db)
+
+    def sees(email):
+        user = db.query(User).filter_by(email=email).one()
+        [vec] = get_embedding_provider().embed(["reference 9K"])
+        hits = retrieve(db, query_embedding=vec, user=user, query_text="reference 9K")
+        return any("9K" in h.content for h in hits)
+
+    assert sees("u1@x.org")           # same municipality
+    assert not sees("u2@x.org")       # another municipality
+
+
+def test_deleting_a_comment_removes_it_from_the_assistant(client, db, world):
+    from app.models import Chunk
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world).json()["id"]
+    cid = client.post(f"/api/board-items/{item_id}/comments",
+                      json={"body": "a passing remark"}, headers=headers).json()["id"]
+    run_pending_jobs(db)
+    assert db.query(Chunk).filter(Chunk.source_type == "comment").count() == 1
+
+    client.delete(f"/api/board-items/{item_id}/comments/{cid}", headers=headers)
+    assert db.query(Chunk).filter(Chunk.source_type == "comment").count() == 0
+
+
+def test_deleting_a_post_removes_its_comments_from_the_assistant(client, db, world):
+    """Comment chunks are keyed by comment id, so they would otherwise survive
+    the post — answerable content for something that no longer exists."""
+    from app.models import Chunk
+    from app.services.ingestion import run_pending_jobs
+
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world).json()["id"]
+    client.post(f"/api/board-items/{item_id}/comments",
+                json={"body": "first"}, headers=headers)
+    client.post(f"/api/board-items/{item_id}/comments",
+                json={"body": "second"}, headers=headers)
+    run_pending_jobs(db)
+    assert db.query(Chunk).filter(Chunk.source_type == "comment").count() == 2
+
+    client.delete(f"/api/board-items/{item_id}", headers=headers)
+    assert db.query(Chunk).filter(Chunk.source_type == "comment").count() == 0

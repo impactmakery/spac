@@ -350,6 +350,42 @@ async def create_item(
     return _out(db, item, user)
 
 
+def _enqueue_comment(db: Session, item: BoardItem, comment: BoardComment) -> None:
+    """Index a comment at its post's scope.
+
+    Comments carry the corrections that follow a post, and answering from them
+    is only safe if they inherit exactly the post's visibility — a comment on a
+    municipality post must not leak further than the post itself.
+    """
+    enqueue(
+        db,
+        source_type="comment",
+        source_id=comment.id,
+        visibility="global" if item.scope == "global" else "municipality",
+        text_content=comment.body,
+        # The post's title gives the comment context; on its own, "yes, section
+        # 4" says nothing a search could use.
+        title=item.title,
+        municipality_id=item.municipality_id,
+    )
+
+
+def _delete_comment_chunks(db: Session, comment_ids: list[uuid.UUID]) -> None:
+    if not comment_ids:
+        return
+    db.execute(
+        delete(Chunk).where(
+            Chunk.source_type == "comment", Chunk.source_id.in_(comment_ids)
+        )
+    )
+    db.execute(
+        delete(IngestionJob).where(
+            IngestionJob.source_type == "comment",
+            IngestionJob.source_id.in_(comment_ids),
+        )
+    )
+
+
 def _get_item_or_404(db: Session, item_id: uuid.UUID, user: User) -> BoardItem:
     item = db.get(BoardItem, item_id)
     if item is None:
@@ -433,6 +469,13 @@ def delete_item(
     if not _can_delete(db, item, user):
         raise HTTPException(status_code=404, detail="not_found")
     storage_key = item.storage_key
+    # Comments cascade in the database, but their chunks are keyed by comment id
+    # and would otherwise survive the post they belong to — answerable content
+    # for a post that no longer exists.
+    _delete_comment_chunks(
+        db,
+        list(db.scalars(select(BoardComment.id).where(BoardComment.item_id == item.id))),
+    )
     db.execute(
         delete(Chunk).where(Chunk.source_type == "board", Chunk.source_id == item.id)
     )
@@ -502,6 +545,8 @@ def add_comment(
         item_id=item.id, author_id=user.id, body=body.body, parent_id=parent_id
     )
     db.add(comment)
+    db.flush()
+    _enqueue_comment(db, item, comment)
     db.commit()
     return CommentOut(
         id=str(comment.id),
@@ -532,6 +577,11 @@ def delete_comment(
             entity_type="board_comment", entity_id=str(comment.id),
             before={"body": comment.body[:200]},
         )
+    # Replies cascade in the database, so their chunks go too.
+    reply_ids = list(
+        db.scalars(select(BoardComment.id).where(BoardComment.parent_id == comment.id))
+    )
+    _delete_comment_chunks(db, [comment.id, *reply_ids])
     db.delete(comment)
     db.commit()
     return {"ok": True}
