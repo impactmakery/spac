@@ -42,10 +42,14 @@ export async function toggleLike(itemId: string) {
   );
 }
 
-export async function addComment(itemId: string, body: string) {
+export async function addComment(
+  itemId: string,
+  body: string,
+  parentId?: string | null,
+) {
   return call(`/api/board-items/${itemId}/comments`, {
     method: "POST",
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, parent_id: parentId ?? null }),
   });
 }
 

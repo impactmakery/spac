@@ -195,7 +195,9 @@
     "addCategory": "הוספת קטגוריה",
     "dropTitle": "גררו לכאן קובץ",
     "dropBrowse": "או לחצו כדי לבחור קובץ מהמחשב",
-    "removeFile": "הסרת הקובץ"
+    "removeFile": "הסרת הקובץ",
+    "reply": "תגובה",
+    "replyPlaceholder": "כתבו תגובה…"
   },
   "departmentArea": {
     "filesTab": "קבצים",

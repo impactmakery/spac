@@ -38,6 +38,8 @@ export interface BoardComment {
   body: string;
   can_delete: boolean;
   created_at: string;
+  /** Replies are one level deep; a top-level comment has null here. */
+  parent_id: string | null;
 }
 
 export interface BoardItemDetail extends BoardItemRow {

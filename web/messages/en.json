@@ -195,7 +195,9 @@
     "addCategory": "Add category",
     "dropTitle": "Drag a file here",
     "dropBrowse": "or click to choose one from your computer",
-    "removeFile": "Remove file"
+    "removeFile": "Remove file",
+    "reply": "Reply",
+    "replyPlaceholder": "Write a reply…"
   },
   "departmentArea": {
     "filesTab": "Files",

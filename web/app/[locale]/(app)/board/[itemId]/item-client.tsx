@@ -18,12 +18,17 @@ import {
   editBoardItem,
   toggleLike,
 } from "@/app/[locale]/(app)/board-actions";
+import { Avatar } from "@/components/avatar";
 import { CategoryChip } from "@/components/board/item-card";
 import { PromptBlock } from "@/components/board/prompt-block";
 import { Dialog } from "@/components/dialog";
 import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
-import type { BoardItemDetail, CategoryRef } from "@/lib/board-types";
+import type {
+  BoardComment,
+  BoardItemDetail,
+  CategoryRef,
+} from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
 
 export function ItemClient({
@@ -47,6 +52,8 @@ export function ItemClient({
   const [liked, setLiked] = useState(item.liked_by_me);
   const [likeCount, setLikeCount] = useState(item.like_count);
   const [comment, setComment] = useState("");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
+  const [replyBody, setReplyBody] = useState("");
   const [busy, setBusy] = useState(false);
   const [editOpen, setEditOpen] = useState(startEditing && item.can_edit);
   const [externalOpen, setExternalOpen] = useState(false);
@@ -76,6 +83,17 @@ export function ItemClient({
     setBusy(true);
     await addComment(item.id, comment.trim().slice(0, 1000));
     setComment("");
+    setBusy(false);
+    router.refresh();
+  }
+
+  async function onReply(e: React.FormEvent, parentId: string) {
+    e.preventDefault();
+    if (!replyBody.trim()) return;
+    setBusy(true);
+    await addComment(item.id, replyBody.trim().slice(0, 1000), parentId);
+    setReplyBody("");
+    setReplyTo(null);
     setBusy(false);
     router.refresh();
   }
@@ -207,35 +225,52 @@ export function ItemClient({
           <p className="text-sm text-muted-foreground">{t("noComments")}</p>
         ) : (
           <ul className="space-y-3">
-            {item.comments.map((c) => (
-              <li key={c.id}>
-                <Card className="flex items-start justify-between gap-3 p-4">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {c.author.name ?? "—"}
-                      {c.author.inactive && ` (${t("inactiveAuthor")})`}
-                      <span className="ms-2 text-xs font-normal text-muted-foreground">
-                        {format.dateTime(new Date(c.created_at), {
-                          dateStyle: "short",
-                          timeStyle: "short",
-                        })}
-                      </span>
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-                      {c.body}
-                    </p>
-                  </div>
-                  {c.can_delete && (
-                    <button
-                      onClick={() => onDeleteComment(c.id)}
-                      className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
-                  )}
-                </Card>
-              </li>
-            ))}
+            {item.comments
+              .filter((c) => !c.parent_id)
+              .map((c) => {
+                const replies = item.comments.filter((r) => r.parent_id === c.id);
+                return (
+                  <li key={c.id}>
+                    <CommentCard
+                      comment={c}
+                      onDelete={onDeleteComment}
+                      onReplyClick={() => {
+                        setReplyTo(replyTo === c.id ? null : c.id);
+                        setReplyBody("");
+                      }}
+                    />
+
+                    {(replies.length > 0 || replyTo === c.id) && (
+                      <ul className="mt-2 space-y-2 border-s-2 border-border ps-4 ms-4">
+                        {replies.map((r) => (
+                          <li key={r.id}>
+                            <CommentCard comment={r} onDelete={onDeleteComment} />
+                          </li>
+                        ))}
+                        {replyTo === c.id && (
+                          <li>
+                            <form
+                              onSubmit={(e) => onReply(e, c.id)}
+                              className="flex gap-2"
+                            >
+                              <Input
+                                autoFocus
+                                placeholder={t("replyPlaceholder")}
+                                maxLength={1000}
+                                value={replyBody}
+                                onChange={(e) => setReplyBody(e.target.value)}
+                              />
+                              <Button type="submit" disabled={busy}>
+                                {t("reply")}
+                              </Button>
+                            </form>
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
           </ul>
         )}
 
@@ -320,5 +355,57 @@ export function ItemClient({
         </div>
       </Dialog>
     </div>
+  );
+}
+
+function CommentCard({
+  comment,
+  onDelete,
+  onReplyClick,
+}: {
+  comment: BoardComment;
+  onDelete: (id: string) => void;
+  /** Only top-level comments offer a reply: threads are one level deep. */
+  onReplyClick?: () => void;
+}) {
+  const t = useTranslations("board");
+  const format = useFormatter();
+  return (
+    <Card className="flex items-start gap-3 p-4">
+      <Avatar name={comment.author.name} seed={comment.author.id} />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">
+          {comment.author.name ?? "—"}
+          {comment.author.inactive && ` (${t("inactiveAuthor")})`}
+          <span className="ms-2 text-xs font-normal text-muted-foreground">
+            {format.dateTime(new Date(comment.created_at), {
+              dateStyle: "short",
+              timeStyle: "short",
+            })}
+          </span>
+        </p>
+        <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+          {comment.body}
+        </p>
+        {onReplyClick && (
+          <button
+            type="button"
+            onClick={onReplyClick}
+            className="mt-1.5 text-xs font-medium text-primary hover:underline"
+          >
+            {t("reply")}
+          </button>
+        )}
+      </div>
+      {comment.can_delete && (
+        <button
+          onClick={() => onDelete(comment.id)}
+          aria-label={t("delete")}
+          className="shrink-0 rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-destructive"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      )}
+    </Card>
   );
 }

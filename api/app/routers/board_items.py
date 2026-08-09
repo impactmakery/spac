@@ -72,6 +72,7 @@ class CommentOut(BaseModel):
     body: str
     can_delete: bool
     created_at: datetime
+    parent_id: str | None = None
 
 
 class BoardItemDetail(BoardItemOut):
@@ -179,6 +180,9 @@ def list_items(
             BoardItem.search.op("@@")(func.plainto_tsquery("simple", search))
             | func.lower(BoardItem.title).like(like)
             | func.lower(func.coalesce(BoardItem.description, "")).like(like)
+            # The prompt is the substance of a shared-prompt post, so a partial
+            # match against it has to find the post too.
+            | func.lower(func.coalesce(BoardItem.prompt_text, "")).like(like)
         )
     if sort == "liked":
         like_counts = (
@@ -341,6 +345,7 @@ def get_item(
                 body=c.body,
                 can_delete=c.author_id == user.id or _can_delete(db, item, user),
                 created_at=c.created_at,
+                parent_id=str(c.parent_id) if c.parent_id else None,
             )
             for c in comments
         ],
@@ -425,6 +430,7 @@ def toggle_like(
 
 class CommentIn(BaseModel):
     body: str = Field(min_length=1, max_length=MAX_COMMENT)
+    parent_id: str | None = None
 
 
 @router.post("/{item_id}/comments", status_code=201, response_model=CommentOut)
@@ -435,7 +441,21 @@ def add_comment(
     db: Session = Depends(get_db),
 ) -> CommentOut:
     item = _get_item_or_404(db, item_id, user)
-    comment = BoardComment(item_id=item.id, author_id=user.id, body=body.body)
+
+    parent_id = None
+    if body.parent_id:
+        parent = db.get(BoardComment, uuid.UUID(body.parent_id))
+        # A reply must belong to this item, or a comment id from another post
+        # would attach a reply somewhere its author never looks.
+        if parent is None or parent.item_id != item.id:
+            raise HTTPException(status_code=422, detail="invalid_parent")
+        # One level deep: replying to a reply joins the same thread rather than
+        # nesting further.
+        parent_id = parent.parent_id or parent.id
+
+    comment = BoardComment(
+        item_id=item.id, author_id=user.id, body=body.body, parent_id=parent_id
+    )
     db.add(comment)
     db.commit()
     return CommentOut(
@@ -444,6 +464,7 @@ def add_comment(
         body=comment.body,
         can_delete=True,
         created_at=comment.created_at,
+        parent_id=str(parent_id) if parent_id else None,
     )
 
 

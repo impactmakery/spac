@@ -319,7 +319,8 @@ class BoardItem(Base):
     search: Mapped[str | None] = mapped_column(
         TSVECTOR,
         Computed(
-            "to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(description,''))",
+            "to_tsvector('simple', coalesce(title,'') || ' ' || "
+            "coalesce(description,'') || ' ' || coalesce(prompt_text,''))",
             persisted=True,
         ),
         nullable=True,
@@ -332,6 +333,12 @@ class BoardComment(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     item_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("board_items.id", ondelete="CASCADE"), nullable=False
+    )
+    # Replies are one level deep: a reply to a reply attaches to the same
+    # parent. Deeper threads are hard to read on a phone and, in a workplace
+    # discussion, rarely say anything a flat reply could not.
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("board_comments.id", ondelete="CASCADE")
     )
     author_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     body: Mapped[str] = mapped_column(Text, nullable=False)

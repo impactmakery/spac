@@ -334,3 +334,101 @@ def test_any_file_type_can_be_attached_to_a_post(client, db, world, files_dir):
     assert res.json()["filename"] == "diagram.zip"
 
     run_pending_jobs(db)  # must not raise on a type it cannot read
+
+
+def test_board_search_covers_title_description_and_prompt(client, db, world):
+    """Search is how people find a post they half-remember. A shared prompt's
+    body is the substance of that post, so it has to be searchable too."""
+    headers = auth(client, "u1@x.org")
+    cid = str(world["cat"].id)
+
+    client.post("/api/board-items", headers=headers, data={
+        "title": "Tender checklist", "category_id": cid, "destination": "global",
+        "link_url": "https://example.org/x"})
+    client.post("/api/board-items", headers=headers, data={
+        "title": "Meeting notes", "category_id": cid, "destination": "global",
+        "description": "Covers the recycling centre opening hours",
+        "link_url": "https://example.org/y"})
+    client.post("/api/board-items", headers=headers, data={
+        "title": "נוהל פנימי", "category_id": cid, "destination": "global",
+        "description": "סיכום ישיבת ועדת התקציב", "link_url": "https://example.org/z"})
+    client.post("/api/board-items", headers=headers, data={
+        "title": "Helper", "category_id": cid, "destination": "global",
+        "prompt_text": "Summarise a tender document under regulation 17.3"})
+
+    def titles(term):
+        r = client.get(f"/api/board-items?scope=global&search={term}", headers=headers)
+        assert r.status_code == 200, r.text
+        return [i["title"] for i in r.json()["items"]]
+
+    assert "Tender checklist" in titles("tender")          # title
+    assert "Meeting notes" in titles("recycling")           # description
+    assert "נוהל פנימי" in titles("התקציב")                  # Hebrew
+    assert "Helper" in titles("regulation"), "prompt body is not searchable"
+
+
+# --- comment replies ----------------------------------------------------------
+
+
+def test_reply_attaches_to_its_parent(client, world):
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world).json()["id"]
+    parent = client.post(f"/api/board-items/{item_id}/comments",
+                         json={"body": "does this cover tenders?"}, headers=headers).json()
+
+    reply = client.post(f"/api/board-items/{item_id}/comments",
+                        json={"body": "yes, section 4", "parent_id": parent["id"]},
+                        headers=headers)
+    assert reply.status_code == 201, reply.text
+    assert reply.json()["parent_id"] == parent["id"]
+
+    detail = client.get(f"/api/board-items/{item_id}", headers=headers).json()
+    by_id = {c["id"]: c for c in detail["comments"]}
+    assert by_id[parent["id"]]["parent_id"] is None
+    assert by_id[reply.json()["id"]]["parent_id"] == parent["id"]
+
+
+def test_replying_to_a_reply_stays_one_level_deep(client, world):
+    """Deeper threads are hard to read and rarely say more than a flat reply."""
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world).json()["id"]
+    parent = client.post(f"/api/board-items/{item_id}/comments",
+                         json={"body": "top"}, headers=headers).json()
+    reply = client.post(f"/api/board-items/{item_id}/comments",
+                        json={"body": "middle", "parent_id": parent["id"]},
+                        headers=headers).json()
+
+    deeper = client.post(f"/api/board-items/{item_id}/comments",
+                         json={"body": "deeper", "parent_id": reply["id"]},
+                         headers=headers)
+    assert deeper.status_code == 201
+    assert deeper.json()["parent_id"] == parent["id"], "nesting went past one level"
+
+
+def test_reply_cannot_attach_to_another_posts_comment(client, world):
+    """Otherwise a reply lands somewhere its author never looks."""
+    headers = auth(client, "u1@x.org")
+    first = publish_link(client, headers, world, title="First").json()["id"]
+    second = publish_link(client, headers, world, title="Second").json()["id"]
+    elsewhere = client.post(f"/api/board-items/{first}/comments",
+                            json={"body": "on the first post"}, headers=headers).json()
+
+    res = client.post(f"/api/board-items/{second}/comments",
+                      json={"body": "misdirected", "parent_id": elsewhere["id"]},
+                      headers=headers)
+    assert res.status_code == 422
+    assert res.json()["detail"] == "invalid_parent"
+
+
+def test_deleting_a_comment_removes_its_replies(client, world):
+    headers = auth(client, "u1@x.org")
+    item_id = publish_link(client, headers, world).json()["id"]
+    parent = client.post(f"/api/board-items/{item_id}/comments",
+                         json={"body": "top"}, headers=headers).json()
+    client.post(f"/api/board-items/{item_id}/comments",
+                json={"body": "a reply", "parent_id": parent["id"]}, headers=headers)
+
+    assert client.delete(f"/api/board-items/{item_id}/comments/{parent['id']}",
+                         headers=headers).status_code == 200
+    detail = client.get(f"/api/board-items/{item_id}", headers=headers).json()
+    assert detail["comments"] == [], "an orphaned reply survived its parent"
