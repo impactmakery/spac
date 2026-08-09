@@ -89,14 +89,23 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
                 )}
               </div>
             </div>
-            <div className="mt-6 flex justify-end gap-2">
-              <Button type="button" variant="secondary" onClick={() => settle(false)}>
+            {/* Equal widths and one shared gap, so the pair reads as two
+                balanced choices rather than a primary action with an
+                afterthought beside it. */}
+            <div className="mt-6 flex gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                onClick={() => settle(false)}
+              >
                 {t("cancel")}
               </Button>
               <Button
                 type="button"
                 autoFocus
                 variant={destructive ? "destructive" : "primary"}
+                className="flex-1"
                 onClick={() => settle(true)}
               >
                 {options.confirmLabel ?? t("delete")}
