@@ -38,6 +38,11 @@ _parser.add_argument(
     "--dept-user-password",
     default=os.environ.get("DEMO_DEPT_USER_PASSWORD", PLACEHOLDER),
 )
+_parser.add_argument(
+    "--municipality-password",
+    default=os.environ.get("MUNICIPALITY_PASSWORD", PLACEHOLDER),
+    help="the shared password on the seven municipality accounts",
+)
 _args = _parser.parse_args()
 OUT = str(_args.out)
 
@@ -115,8 +120,8 @@ props.comments = (
 # ---------------------------------------------------------------- accounts
 h("1. Production accounts", 1)
 para(
-    "Three accounts exist in production, one per role. Passwords were randomly "
-    "generated and should be changed before the URL is shared outside the team."
+    "Three accounts cover the three roles. Passwords should be changed before the "
+    "URL is shared outside the team."
 )
 table(
     ["Email", "Role", "Scope", "Password", "Lands on"],
@@ -144,6 +149,28 @@ table(
         ],
     ],
 )
+para("")
+h("Municipality accounts", 2)
+para(
+    "One administrator per municipality, created on 12 August 2026 alongside their "
+    "documents. Each can reach only their own municipality. All seven currently "
+    f"share the password {_args.municipality_password}, and all have the weekly "
+    "digest switched off because the addresses are placeholders — give each its own "
+    "password and real address before staff use them."
+)
+table(
+    ["Email", "Municipality", "Contact named in the folder"],
+    [
+        ["deiralasad@impactmakery.com", "דיר אל אסד", "הנד"],
+        ["hurfeish@impactmakery.com", "חורפיש", "אסיה"],
+        ["maaleyosef@impactmakery.com", "מעלה יוסף", "לב"],
+        ["nahariya@impactmakery.com", "נהריה", "אלצ׳ין"],
+        ["tzfat@impactmakery.com", "צפת", "אוריאל"],
+        ["kiryatshmona@impactmakery.com", "קריית שמונה", "מתניה"],
+        ["shlomi@impactmakery.com", "שלומי", "אליהו"],
+    ],
+)
+
 para("")
 para(
     "The two demo accounts were created directly with passwords rather than by "
@@ -432,28 +459,58 @@ h("10.3  Content and data", 2)
 bullets(
     [
         (
-            "Production is nearly empty",
-            "one knowledge-base document, no board items, no department content. The "
-            "assistant will answer “not covered” for almost everything until real "
-            "material is uploaded.",
+            "Seven municipalities hold their own material",
+            "344 documents were loaded from the folders supplied on 12 August 2026: "
+            "קריית שמונה 311, שלומי 23, דיר אל אסד 10, מעלה יוסף 1. Each sits in that "
+            "municipality's own library and is readable by that municipality alone.",
         ),
         (
-            "The knowledge graph is empty",
-            "the one existing document was indexed before the graph existed, so it has "
-            "no entities or relationships. Anything uploaded from now on is indexed "
-            "into the graph automatically; re-running the re-index command would "
-            "upgrade the existing document.",
+            "Three municipalities sent empty folders",
+            "חורפיש, נהריה and צפת exist with working accounts but no documents, so the "
+            "assistant will answer “not covered” for them until someone uploads.",
         ),
         (
-            "Two throwaway municipalities exist",
+            "25 files could not be taken",
+            "6 exceed the 25 MB limit (the largest is 111 MB) and 19 are formats the "
+            "library does not read — .doc, .ppt, .xlsb, .html, .avif, .zip, and one "
+            ".exe. The full list was delivered as a CSV. Re-saving the older Office "
+            "files as .docx/.pptx would let them in; the oversize presentations need "
+            "splitting or compressing.",
+        ),
+        (
+            "One PDF needed repairing",
+            "a tender notice carried 21 stray bytes in front of its PDF header, so the "
+            "content check refused it. A copy with those bytes removed was uploaded; "
+            "the original file was not modified.",
+        ),
+        (
+            "The knowledge graph is entity-only for now",
+            "extraction is set to pattern matching rather than a language model, because "
+            "building the graph with a model would have meant roughly ten thousand calls "
+            "against a free-tier quota. Search, ranking and citations are unaffected — "
+            "the graph is a third way of finding passages, not the only one. Pointing "
+            "GRAPH_EXTRACTOR back at a funded model and re-running the re-index command "
+            "builds the full graph, including the Hebrew relationships pattern matching "
+            "cannot see.",
+        ),
+        (
+            "Two throwaway municipalities still exist",
             "“Sample” (empty, from earlier testing) and “עיריית דוגמה” (holds the two "
             "demo accounts). Both should be removed before real use.",
         ),
         (
-            "Hebrew retrieval has not been measured on real documents",
-            "the search has been tested with synthetic Hebrew, not with actual municipal "
-            "PDFs. This is the largest remaining unknown and is worth doing before a "
-            "pilot: 10–20 real documents plus the questions staff would actually ask.",
+            "The seven municipality accounts share one password",
+            "they were created directly rather than by invitation because the addresses "
+            "are placeholders. Each should be given its own password, and its real "
+            "address, before staff use them. The weekly digest is switched off on all "
+            "seven so nothing bounces.",
+        ),
+        (
+            "Hebrew retrieval can now be measured, and should be",
+            "until this load the search had only been tested against synthetic Hebrew. "
+            "There is now a real corpus behind it, so the open question — does it answer "
+            "the questions staff actually ask? — is finally answerable. Worth doing "
+            "before a pilot.",
         ),
     ]
 )
