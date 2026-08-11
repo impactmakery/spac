@@ -176,7 +176,7 @@ def main() -> None:
     # to a codepage that cannot encode it.
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, "reconfigure"):
-            stream.reconfigure(encoding="utf-8", errors="replace")
+            stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
 
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", required=True, type=Path)
@@ -245,13 +245,13 @@ def main() -> None:
                 api.upload(path, title, muni_id)
             except Exception as exc:  # noqa: BLE001 — one bad file must not stop 368
                 failures.append((path, str(exc)))
-                print(f"  FAILED {path.name}: {exc}")
+                print(f"  FAILED {path.name}: {exc}", flush=True)
                 continue
             uploaded += 1
             if uploaded % 25 == 0:
                 rate = uploaded / max(time.monotonic() - started, 1)
                 done = uploaded + skipped_existing
-                print(f"  {done}/{total_files} ({rate:.1f}/s uploading)")
+                print(f"  {done}/{total_files} ({rate:.1f}/s uploading)", flush=True)
 
     print(f"\nuploaded {uploaded} of {total_files}")
     if skipped_existing:
