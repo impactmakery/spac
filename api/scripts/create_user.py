@@ -95,6 +95,7 @@ def create_user(
     language: str,
     create_missing: bool,
     reset_password: bool,
+    digest_enabled: bool = True,
 ) -> User:
     if len(password) < MIN_PASSWORD:
         raise SystemExit(f"password must be at least {MIN_PASSWORD} characters")
@@ -141,6 +142,7 @@ def create_user(
         language=language,
         password_hash=hash_password(password),
         municipality_id=muni.id if muni else None,
+        digest_enabled=digest_enabled,
     )
     db.add(user)
     db.flush()
@@ -163,6 +165,12 @@ def create_user(
 
 
 def main() -> None:
+    # The examples below are Hebrew and the Windows console defaults to a
+    # codepage that cannot encode them — --help must not be what crashes.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
@@ -184,6 +192,13 @@ def main() -> None:
         help="create the municipality/departments if they do not exist yet",
     )
     parser.add_argument(
+        "--no-digest", action="store_true",
+        help=(
+            "do not send this account the weekly digest — for placeholder "
+            "addresses that would only bounce"
+        ),
+    )
+    parser.add_argument(
         "--reset-password", action="store_true",
         help="allow overwriting the password of an existing account",
     )
@@ -198,6 +213,7 @@ def main() -> None:
             role=args.role,
             name=args.name,
             municipality_name=args.municipality,
+            digest_enabled=not args.no_digest,
             department_names=args.department,
             language=args.language,
             create_missing=args.create,

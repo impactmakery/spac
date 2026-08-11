@@ -38,7 +38,9 @@ export function KbDocListRow({
         <p className="truncate font-semibold text-foreground">{doc.title}</p>
         <p className="truncate text-xs text-muted-foreground">
           {typeLabel} · {formatBytes(doc.size_bytes)} ·{" "}
-          {doc.municipality_name ?? t("program")} ·{" "}
+          {/* which library this is sits in the tab above, so the useful
+              detail on the row is who put the document there */}
+          {doc.uploader_name ?? doc.municipality_name ?? t("program")} ·{" "}
           {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
         </p>
       </Link>

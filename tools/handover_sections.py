@@ -43,8 +43,9 @@ UPLOAD_RULES = [
      "another unexamined. This is a known gap, not an oversight; virus scanning "
      "can be added without narrowing what people may share."),
     ("Where you can upload",
-     "the knowledge base (shared with every municipality), a board post as an "
-     "attachment, or a department area (visible to that department only)."),
+     "the shared library (every municipality reads it), your own municipality's "
+     "library (only your municipality reads it), a board post as an attachment, "
+     "or a department area (visible to that department only)."),
     ("What happens next",
      "the file is stored, its text is extracted, split into passages and indexed so "
      "the assistant can quote it. Status moves from Pending to Indexed, usually in "
@@ -79,7 +80,7 @@ PAGES = [
      "Ask questions in Hebrew or English and get an answer built only from documents you are allowed to see, with numbered links to the sources. The answer streams word by word. Conversations are private to you, are titled automatically, and can be renamed or deleted. Sample questions are offered when a conversation is empty. Sixty messages per hour per person.",
      "GET /api/conversations · POST /api/conversations · PATCH & DELETE /api/conversations/{id} · POST /api/chat/{id}/messages · GET /api/chat/sample-questions"],
     ["Knowledge base", "/knowledge", "Administrators",
-     "The shared library, curated centrally. Browse, search and upload several files at once. Department users do not see this screen — they reach its contents by asking the assistant, and a citation still opens the document it points at. A municipality admin may edit or delete only their own uploads; a system admin, any of them.",
+     "Two kinds of library, switched between at the top of the screen. The shared library is curated centrally and read by every municipality; only a system admin adds to it. Each municipality also has its own library, which only that municipality can read and which any of its administrators may fill, edit or empty. Browse, search and upload several files at once. Department users do not see this screen — they reach both libraries' contents by asking the assistant, and a citation still opens the document it points at.",
      "GET /api/kb-documents · POST /api/kb-documents"],
     ["Document page", "/knowledge/[id]", "Everyone",
      "Preview the document in the page, download it through a short-lived signed link, and see its indexing status. The uploader and system admin can replace the file, retry a failed indexing, or delete it.",
@@ -169,7 +170,8 @@ BACKGROUND = [
 
 # What the assistant is and is not given, as a table plus the exclusions.
 ASSISTANT_SOURCES = [
-    ["Knowledge base", "The full text of every document, including scanned pages read by OCR", "Everyone"],
+    ["Shared library", "The full text of every document, including scanned pages read by OCR", "Everyone"],
+    ["Municipality library", "The full text of every document that municipality has uploaded", "That municipality only"],
     ["Shared board", "Post title, description, Text, and the contents of any attached file", "Everyone"],
     ["Municipality board", "Post title, description, Text, and the contents of any attached file", "That municipality only"],
     ["Board comments and replies", "The text of the comment, with its post's title for context", "Whoever can see the post"],

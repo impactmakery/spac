@@ -1,53 +1,115 @@
 "use client";
 
-import { Layers, Search, Upload } from "lucide-react";
+import { Building2, Globe, Layers, Search, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useMemo, useRef, useState } from "react";
 import { uploadKbDocument } from "@/app/[locale]/(app)/kb-actions";
 import { KbDocListRow } from "@/components/kb-doc-row";
 import { PageHeader } from "@/components/page-header";
-import { Button, FieldError, Input } from "@/components/ui";
+import { useToast } from "@/components/toast";
+import { Button, Input } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
 
+interface MunicipalityRef {
+  id: string;
+  name: string;
+}
+
+/** Which library is on screen: the shared one, or one municipality's. */
+type Library = { kind: "global" } | { kind: "municipality"; id: string; name: string };
+
 export function KnowledgeClient({
   docs,
-  canUpload,
+  isSystemAdmin,
+  municipalities,
+  ownMunicipality,
 }: {
   docs: KbDocRow[];
-  canUpload: boolean;
+  isSystemAdmin: boolean;
+  municipalities: MunicipalityRef[];
+  ownMunicipality: MunicipalityRef | null;
 }) {
   const t = useTranslations("knowledge");
   const router = useRouter();
+  const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // A municipality admin has two libraries at most: the shared one they read,
+  // and their own which they fill. A system admin has one per municipality.
+  const tabs: Library[] = useMemo(() => {
+    const list: Library[] = [{ kind: "global" }];
+    const source = isSystemAdmin
+      ? municipalities
+      : ownMunicipality
+        ? [ownMunicipality]
+        : [];
+    for (const m of source) list.push({ kind: "municipality", id: m.id, name: m.name });
+    return list;
+  }, [isSystemAdmin, municipalities, ownMunicipality]);
+
+  // A municipality admin lands on their own library — the one they can add to.
+  const [active, setActive] = useState<Library>(
+    !isSystemAdmin && ownMunicipality
+      ? { kind: "municipality", id: ownMunicipality.id, name: ownMunicipality.name }
+      : { kind: "global" },
+  );
+
+  // Only a system admin curates the shared library; everyone else reads it.
+  const canUpload = active.kind === "global" ? isSystemAdmin : true;
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return docs.filter((d) => !q || d.title.toLowerCase().includes(q));
-  }, [docs, search]);
+    return docs.filter(
+      (d) =>
+        (active.kind === "global"
+          ? d.scope === "global"
+          : d.scope === "municipality" && d.municipality_id === active.id) &&
+        (!q || d.title.toLowerCase().includes(q)),
+    );
+  }, [docs, search, active]);
+
+  function countFor(tab: Library) {
+    return docs.filter((d) =>
+      tab.kind === "global"
+        ? d.scope === "global"
+        : d.scope === "municipality" && d.municipality_id === tab.id,
+    ).length;
+  }
 
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;
-    setError(null);
     setBusy(true);
-    const file = files[0];
-    if (file.size > 25 * 1024 * 1024) {
-      setError(t("fileTooLarge"));
-      setBusy(false);
-      return;
+    // Uploading a folder at a time is the normal case here, so each file is
+    // reported on its own rather than the whole batch failing as one.
+    let added = 0;
+    for (const file of Array.from(files)) {
+      if (file.size > 25 * 1024 * 1024) {
+        toast(`${file.name}: ${t("fileTooLarge")}`, "error");
+        continue;
+      }
+      const fd = new FormData();
+      fd.append("file", file);
+      if (active.kind === "municipality") {
+        fd.append("scope", "municipality");
+        fd.append("municipality_id", active.id);
+      }
+      const res = await uploadKbDocument(fd);
+      if ("error" in res) {
+        const msg =
+          res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error;
+        toast(`${file.name}: ${msg}`, "error");
+      } else {
+        added += 1;
+      }
     }
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await uploadKbDocument(fd);
     setBusy(false);
-    if ("error" in res) {
-      setError(res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error);
-      return;
+    if (added) {
+      toast(t("uploaded", { count: added }), "success");
+      router.refresh();
     }
-    router.refresh();
   }
 
   return (
@@ -64,7 +126,10 @@ export function KnowledgeClient({
                 multiple
                 accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.md"
                 className="hidden"
-                onChange={(e) => onFiles(e.target.files)}
+                onChange={(e) => {
+                  onFiles(e.target.files);
+                  e.target.value = "";
+                }}
               />
               <Button disabled={busy} onClick={() => fileRef.current?.click()}>
                 <Upload className="size-4" />
@@ -75,11 +140,42 @@ export function KnowledgeClient({
         }
       />
 
+      {tabs.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted p-1">
+          {tabs.map((tab) => {
+            const key = tab.kind === "global" ? "global" : tab.id;
+            const isActive =
+              tab.kind === active.kind &&
+              (tab.kind === "global" || tab.id === (active as { id: string }).id);
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActive(tab)}
+                aria-current={isActive ? "true" : undefined}
+                className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                  isActive
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tab.kind === "global" ? (
+                  <Globe className="size-4" />
+                ) : (
+                  <Building2 className="size-4" />
+                )}
+                {tab.kind === "global" ? t("sharedLibrary") : tab.name}
+                <span className="text-xs text-muted-foreground">{countFor(tab)}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <p className="mb-4 flex items-center gap-2 rounded-lg bg-accent p-3 text-sm text-accent-foreground">
         <Layers className="size-4 shrink-0" />
-        {t("banner")}
+        {active.kind === "global" ? t("banner") : t("municipalityBanner", { name: active.name })}
       </p>
-      <FieldError>{error}</FieldError>
 
       <div className="relative mb-4">
         <Search className="absolute start-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />

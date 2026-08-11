@@ -252,9 +252,11 @@
     "badType": "Unsupported file type (PDF, DOCX, PPTX, XLSX only)",
     "empty": "No documents yet",
     "emptyBody": "Upload the program's first foundation document.",
-    "uploaded": "{count} files uploaded",
+    "uploaded": "{count, plural, one {# document added} other {# documents added}}",
     "textPreview": "Text of the document — formatting, tables and images are not shown. Download the file for the original.",
-    "previewTruncated": "This document is long; only the beginning is shown. Download the file to read it all."
+    "previewTruncated": "This document is long; only the beginning is shown. Download the file to read it all.",
+    "sharedLibrary": "Shared library",
+    "municipalityBanner": "{name}'s own library. Only this municipality can see these documents, and the assistant uses them when answering its staff."
   },
   "municipalities": {
     "title": "Municipalities",

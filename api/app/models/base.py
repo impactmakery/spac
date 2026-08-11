@@ -167,13 +167,27 @@ class Category(Base):
 
 
 class KbDocument(Base):
-    """Global knowledge base document. Replace keeps the id so citations stay valid."""
+    """A knowledge base document. Replace keeps the id so citations stay valid.
+
+    Scope mirrors the boards: 'global' is the shared library every municipality
+    reads, 'municipality' is one municipality's own library. The column is
+    explicit rather than derived from municipality_id, which has always been set
+    to the uploader's municipality even for shared documents — deriving would
+    silently reclassify what is already there.
+    """
 
     __tablename__ = "kb_documents"
     __table_args__ = (
         CheckConstraint(
             "status IN ('pending','processing','indexed','not_indexable')",
             name="ck_kb_documents_status",
+        ),
+        CheckConstraint(
+            "scope IN ('global','municipality')", name="ck_kb_documents_scope"
+        ),
+        CheckConstraint(
+            "scope != 'municipality' OR municipality_id IS NOT NULL",
+            name="ck_kb_documents_muni_scope",
         ),
     )
 
@@ -185,6 +199,7 @@ class KbDocument(Base):
     content_type: Mapped[str] = mapped_column(Text, nullable=False)
     uploader_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     municipality_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("municipalities.id"))
+    scope: Mapped[str] = mapped_column(Text, nullable=False, server_default="global")
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="pending")
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(

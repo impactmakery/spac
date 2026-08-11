@@ -33,6 +33,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: data.user.email,
           role: data.user.role,
           municipalityId: data.user.municipality_id,
+          municipalityName: data.user.municipality_name ?? null,
           departmentIds: data.user.department_ids,
           language: data.user.language,
           digestEnabled: data.user.digest_enabled,

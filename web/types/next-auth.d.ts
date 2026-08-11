@@ -6,6 +6,7 @@ export interface AppUser {
   email: string;
   role: Role;
   municipalityId: string | null;
+  municipalityName: string | null;
   departmentIds: string[];
   language: "he" | "en";
   digestEnabled: boolean;

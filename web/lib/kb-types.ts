@@ -5,8 +5,11 @@ export interface KbDocRow {
   size_bytes: number;
   content_type: string;
   status: "pending" | "processing" | "indexed" | "not_indexable";
+  /** "global" is the shared library; "municipality" is one municipality's own. */
+  scope: "global" | "municipality";
   uploader_name: string | null;
   municipality_name: string | null;
+  municipality_id: string | null;
   uploader_id: string | null;
   created_at: string;
   updated_at: string;

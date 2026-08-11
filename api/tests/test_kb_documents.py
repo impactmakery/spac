@@ -287,3 +287,178 @@ def test_both_kinds_of_administrator_can_browse(client, world, files_dir):
         res = client.get("/api/kb-documents", headers=auth(client, email))
         assert res.status_code == 200, email
         assert [d["title"] for d in res.json()] == ["Waste Guide"]
+
+
+# --- per-municipality libraries -------------------------------------------
+#
+# Each municipality has its own library beside the shared one. The whole point
+# is that it is theirs: another municipality must not see it in a listing, must
+# not be able to open it by guessing its id, and — the one that actually
+# matters — must never have the assistant answer them out of it.
+
+
+@pytest.fixture()
+def two_cities(db, world):
+    from app.core.security import hash_password
+    from app.models import Municipality, User
+
+    m2 = Municipality(name="City Two")
+    pw = hash_password("kb-password-111")
+    db.add_all([
+        m2,
+        User(email="a2@x.org", role="municipality_admin", municipality=m2,
+             status="active", password_hash=pw, name="Other Admin"),
+        User(email="u2@x.org", role="department_user", municipality=m2,
+             status="active", password_hash=pw, name="Other Worker"),
+    ])
+    db.commit()
+    return m2
+
+
+def test_municipality_admin_uploads_land_in_their_own_library(client, world, files_dir):
+    r = _upload(client, auth(client, "a1@x.org"), title="City One Procedure")
+    assert r.status_code == 201, r.text
+    assert r.json()["scope"] == "municipality"
+    assert r.json()["municipality_name"] == "City One"
+
+
+def test_system_admin_uploads_to_the_shared_library_by_default(client, world, files_dir):
+    r = _upload(client, auth(client, "sys@x.org"), title="Programme Handbook")
+    assert r.status_code == 201, r.text
+    assert r.json()["scope"] == "global"
+    assert r.json()["municipality_id"] is None
+
+
+def test_system_admin_can_upload_into_a_named_municipality(client, world, files_dir):
+    r = client.post(
+        "/api/kb-documents",
+        files={"file": ("guide.docx", _docx(), DOCX_MIME)},
+        data={"scope": "municipality", "municipality_id": str(world["m1"].id)},
+        headers=auth(client, "sys@x.org"),
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["scope"] == "municipality"
+    assert r.json()["municipality_name"] == "City One"
+
+
+def test_a_municipality_library_is_invisible_to_another_municipality(
+    client, world, two_cities, files_dir
+):
+    doc_id = _upload(client, auth(client, "a1@x.org"), title="City One Only").json()["id"]
+
+    other = auth(client, "a2@x.org")
+    assert client.get("/api/kb-documents", headers=other).json() == []
+    # 404, not 403: the error must not confirm the document exists
+    assert client.get(f"/api/kb-documents/{doc_id}", headers=other).status_code == 404
+    assert client.get(f"/api/kb-documents/{doc_id}/text", headers=other).status_code == 404
+    assert client.delete(f"/api/kb-documents/{doc_id}", headers=other).status_code == 404
+
+    # and not to that municipality's staff either
+    worker = auth(client, "u2@x.org")
+    assert client.get(f"/api/kb-documents/{doc_id}", headers=worker).status_code == 404
+
+
+def test_shared_library_stays_readable_by_everyone(client, world, two_cities, files_dir):
+    doc_id = _upload(client, auth(client, "sys@x.org"), title="Shared").json()["id"]
+    for email in ("a1@x.org", "u1@x.org", "a2@x.org", "u2@x.org"):
+        r = client.get(f"/api/kb-documents/{doc_id}", headers=auth(client, email))
+        assert r.status_code == 200, email
+
+
+def test_municipality_admin_cannot_touch_the_shared_library(client, world, files_dir):
+    doc_id = _upload(client, auth(client, "sys@x.org"), title="Shared").json()["id"]
+    admin = auth(client, "a1@x.org")
+    # readable — it is shared — but not theirs to change
+    assert client.get(f"/api/kb-documents/{doc_id}", headers=admin).status_code == 200
+    assert client.delete(f"/api/kb-documents/{doc_id}", headers=admin).status_code == 404
+    assert client.post(f"/api/kb-documents/{doc_id}/retry", headers=admin).status_code == 404
+
+
+def test_any_admin_of_the_municipality_manages_its_library(client, db, world, files_dir):
+    """Not only whoever uploaded — a library must survive an administrator leaving."""
+    from app.core.security import hash_password
+    from app.models import User
+
+    db.add(User(email="a1b@x.org", role="municipality_admin", municipality=world["m1"],
+                status="active", password_hash=hash_password("kb-password-111"),
+                name="Second Admin"))
+    db.commit()
+
+    doc_id = _upload(client, auth(client, "a1@x.org")).json()["id"]
+    assert client.delete(
+        f"/api/kb-documents/{doc_id}", headers=auth(client, "a1b@x.org")
+    ).status_code == 200
+
+
+def test_a_municipality_document_is_indexed_at_municipality_visibility(
+    client, db, world, files_dir
+):
+    """The chunk's visibility is what retrieval filters on — global would leak it."""
+    from app.models import Chunk
+    from app.services.ingestion import run_pending_jobs
+
+    _upload(client, auth(client, "a1@x.org"))
+    run_pending_jobs(db)
+
+    chunk = db.query(Chunk).one()
+    assert chunk.visibility == "municipality"
+    assert chunk.municipality_id == world["m1"].id
+
+
+def test_the_assistant_never_cites_another_municipalitys_library(
+    client, db, world, two_cities, files_dir
+):
+    from app.rag.retrieval import retrieve
+    from app.services.ingestion import run_pending_jobs
+
+    _upload(
+        client,
+        auth(client, "a1@x.org"),
+        content=_docx("Refuse collection in City One runs every Tuesday morning."),
+    )
+    run_pending_jobs(db)
+
+    from app.models import User
+    from app.rag.embeddings import get_embedding_provider
+
+    question = "When is refuse collected?"
+    vec = get_embedding_provider().embed([question])[0]
+    theirs = db.query(User).filter_by(email="u1@x.org").one()
+    outsider = db.query(User).filter_by(email="u2@x.org").one()
+
+    def hits(user):
+        return retrieve(db, query_embedding=vec, user=user, query_text=question)
+
+    assert hits(theirs), "their own document must be reachable"
+    assert hits(outsider) == []
+
+
+def test_reembedding_keeps_a_document_in_its_own_library(client, db, world, files_dir):
+    """Re-embedding must read each document's scope, not assume the shared one.
+
+    Switching embedding model re-queues every document. If that queued a
+    municipality's library as global, one maintenance command would publish
+    every municipality's private material to all the others — silently, with
+    nothing in the interface to show it had happened.
+    """
+    import sys
+    from pathlib import Path
+
+    from app.models import Chunk
+    from app.services.ingestion import run_pending_jobs
+
+    _upload(client, auth(client, "a1@x.org"))
+    _upload(client, auth(client, "sys@x.org"), title="Shared")
+    run_pending_jobs(db)
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import reembed
+
+    reembed.requeue(db)
+    db.commit()
+    run_pending_jobs(db)
+
+    by_visibility = {c.visibility for c in db.query(Chunk).all()}
+    assert by_visibility == {"municipality", "global"}
+    muni_chunk = db.query(Chunk).filter_by(visibility="municipality").one()
+    assert muni_chunk.municipality_id == world["m1"].id

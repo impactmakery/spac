@@ -7,6 +7,7 @@ class UserOut(BaseModel):
     email: str
     role: str
     municipality_id: str | None
+    municipality_name: str | None
     department_ids: list[str]
     language: str
     digest_enabled: bool

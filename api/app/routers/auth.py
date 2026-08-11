@@ -48,6 +48,7 @@ def user_out(user: User) -> UserOut:
         email=user.email,
         role=user.role,
         municipality_id=str(user.municipality_id) if user.municipality_id else None,
+        municipality_name=user.municipality.name if user.municipality else None,
         department_ids=[str(d.id) for d in user.departments],
         language=user.language,
         digest_enabled=user.digest_enabled,
