@@ -9,3 +9,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [lint.per-file-ignores]
 "handover_sections.py" = ["E501"]
+
+[lint.isort]
+# handover_sections.py sits beside the generator, so it is our code, not a
+# package — without this ruff groups it with third-party imports.
+known-first-party = ["handover_sections"]

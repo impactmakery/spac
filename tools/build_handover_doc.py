@@ -3,11 +3,13 @@ import os
 import sys
 from pathlib import Path
 
+# the sections module sits beside this file, not on the path of whoever runs it
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from docx import Document
-from docx.shared import Pt, RGBColor
 
-from handover_sections import (
+from docx import Document  # noqa: E402
+from docx.shared import Pt, RGBColor  # noqa: E402
+
+from handover_sections import (  # noqa: E402
     AI_MODELS,
     AI_NOTES,
     ASSISTANT_EXCLUSIONS,
