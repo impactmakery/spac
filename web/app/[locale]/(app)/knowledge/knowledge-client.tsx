@@ -61,7 +61,8 @@ export function KnowledgeClient({
               <input
                 ref={fileRef}
                 type="file"
-                accept=".pdf,.docx,.pptx,.xlsx"
+                multiple
+                accept=".pdf,.docx,.pptx,.xlsx,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.md"
                 className="hidden"
                 onChange={(e) => onFiles(e.target.files)}
               />

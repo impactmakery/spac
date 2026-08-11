@@ -71,12 +71,14 @@ def test_upload_list_download_flow(client, db, world, files_dir):
 
     run_pending_jobs(db)
 
-    # department user can list + open detail with download url
-    user_headers = auth(client, "u1@x.org")
-    rows = client.get("/api/kb-documents", headers=user_headers).json()
+    # the library is browsable by administrators
+    rows = client.get("/api/kb-documents", headers=headers).json()
     assert [d["title"] for d in rows] == ["Waste Guide"]
     assert rows[0]["status"] == "indexed"
 
+    # a department user may still open the document a citation points at,
+    # or the assistant's sources would be uncheckable
+    user_headers = auth(client, "u1@x.org")
     detail = client.get(f"/api/kb-documents/{doc_id}", headers=user_headers).json()
     assert detail["download_url"].startswith("/api/files/kb/")
     # signed URL serves without auth
@@ -85,8 +87,8 @@ def test_upload_list_download_flow(client, db, world, files_dir):
     assert db.query(Chunk).count() == 1
 
     # search
-    assert client.get("/api/kb-documents?search=waste", headers=user_headers).json()
-    assert client.get("/api/kb-documents?search=zzz", headers=user_headers).json() == []
+    assert client.get("/api/kb-documents?search=waste", headers=headers).json()
+    assert client.get("/api/kb-documents?search=zzz", headers=headers).json() == []
 
 
 def test_department_user_cannot_upload(client, world, files_dir):
@@ -249,3 +251,39 @@ def test_the_preview_needs_a_signed_in_user(client, world, files_dir):
     doc_id = _upload(client, sys_headers, filename="p.docx",
                      content=_docx("anything")).json()["id"]
     assert client.get(f"/api/kb-documents/{doc_id}/text").status_code == 401
+
+
+# --- the library is curated centrally ----------------------------------------
+
+
+def test_a_department_user_cannot_browse_the_library(client, world, files_dir):
+    """Staff reach the knowledge base through the assistant, not by browsing.
+    404 rather than 403, so the refusal reveals nothing about what exists."""
+    admin = auth(client, "a1@x.org")
+    _upload(client, admin, title="Waste Guide")
+
+    user_headers = auth(client, "u1@x.org")
+    assert client.get("/api/kb-documents", headers=user_headers).status_code == 404
+    assert (
+        client.get("/api/kb-documents?search=waste", headers=user_headers).status_code
+        == 404
+    )
+
+
+def test_a_department_user_can_still_open_a_cited_document(client, world, files_dir):
+    """The assistant answers from the library for everyone, so the document a
+    citation points at has to open — otherwise its sources are unverifiable."""
+    admin = auth(client, "a1@x.org")
+    doc_id = _upload(client, admin, title="Waste Guide").json()["id"]
+
+    res = client.get(f"/api/kb-documents/{doc_id}", headers=auth(client, "u1@x.org"))
+    assert res.status_code == 200
+    assert res.json()["title"] == "Waste Guide"
+
+
+def test_both_kinds_of_administrator_can_browse(client, world, files_dir):
+    _upload(client, auth(client, "a1@x.org"), title="Waste Guide")
+    for email in ("a1@x.org", "sys@x.org"):
+        res = client.get("/api/kb-documents", headers=auth(client, email))
+        assert res.status_code == 200, email
+        assert [d["title"] for d in res.json()] == ["Waste Guide"]

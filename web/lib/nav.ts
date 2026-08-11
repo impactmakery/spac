@@ -1,4 +1,10 @@
-import type { Role } from "@/lib/roles";
+// Relative, not aliased: this is a value import, and the test runner does
+// not resolve the "@/" alias the way Next does.
+import { isKnowledgeAdmin, type Role } from "./roles";
+
+/** Department areas are complete but not shown while the client decides
+ *  whether they belong in the product. Set to true to restore them. */
+export const SHOW_DEPARTMENT_AREAS = false;
 
 export interface DepartmentRef {
   id: string;
@@ -31,19 +37,28 @@ export function navItems(
 ): NavItem[] {
   const items: NavItem[] = [
     { key: "chat", href: "/chat", icon: "chat" },
-    { key: "knowledge", href: "/knowledge", icon: "knowledge" },
     { key: "board", href: "/board", icon: "board" },
   ];
+  // The knowledge base is curated centrally, so it is an administrator's screen
+  // rather than somewhere staff visit — they reach its contents by asking.
+  if (isKnowledgeAdmin(role)) {
+    items.splice(1, 0, { key: "knowledge", href: "/knowledge", icon: "knowledge" });
+  }
   if (opts.hasMunicipality) {
     items.push({ key: "municipality", href: "/municipality", icon: "municipality" });
   }
-  for (const d of opts.departments) {
-    items.push({
-      key: `dept-${d.id}`,
-      label: d.name,
-      href: `/departments/${d.id}`,
-      icon: "department",
-    });
+  // Department areas are built and working but hidden for now, pending a
+  // decision on whether they are part of the product. The pages and their API
+  // still function; only the links are withheld. Flip this to bring them back.
+  if (SHOW_DEPARTMENT_AREAS) {
+    for (const d of opts.departments) {
+      items.push({
+        key: `dept-${d.id}`,
+        label: d.name,
+        href: `/departments/${d.id}`,
+        icon: "department",
+      });
+    }
   }
   if (role === "municipality_admin") {
     items.push(
@@ -55,7 +70,6 @@ export function navItems(
   if (role === "system_admin") {
     items.push(
       { key: "systemMunicipalities", href: "/system/municipalities", icon: "municipalities" },
-      { key: "systemKnowledge", href: "/system/knowledge-base", icon: "kb-admin" },
       { key: "systemCategories", href: "/system/categories", icon: "categories" },
       { key: "systemUsers", href: "/system/users", icon: "users" },
       { key: "systemStats", href: "/system/stats", icon: "stats" },

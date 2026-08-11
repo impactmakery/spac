@@ -77,9 +77,16 @@ def _storage_key(doc_id: uuid.UUID, filename: str) -> str:
 @router.get("", response_model=list[KbDocOut])
 def list_documents(
     search: str | None = None,
-    user: User = Depends(get_current_user),
+    actor: User = Depends(require_municipality_admin),
     db: Session = Depends(get_db),
 ) -> list[KbDocOut]:
+    """Browse the library. Administrators only.
+
+    The knowledge base is curated centrally, so department users no longer see
+    it as a place to visit — they reach its contents through the assistant.
+    Individual documents stay readable by anyone (see get_document), or a
+    citation would lead somewhere they cannot open.
+    """
     q = select(KbDocument).order_by(KbDocument.created_at.desc())
     if search:
         q = q.where(func.lower(KbDocument.title).like(f"%{search.lower()}%"))
