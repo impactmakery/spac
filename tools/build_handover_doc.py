@@ -33,6 +33,10 @@ PLACEHOLDER = "(ask the project owner)"
 _parser = argparse.ArgumentParser(description="Build the handover document.")
 _parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
 _parser.add_argument(
+    "--system-admin-password",
+    default=os.environ.get("SYSTEM_ADMIN_PASSWORD", PLACEHOLDER),
+)
+_parser.add_argument(
     "--muni-admin-password",
     default=os.environ.get("DEMO_MUNI_ADMIN_PASSWORD", PLACEHOLDER),
 )
@@ -132,7 +136,7 @@ table(
             "info@impactmakery.com",
             "System admin",
             "All municipalities",
-            "(set by you at bootstrap)",
+            _args.system_admin_password,
             "/system/stats",
         ],
         [
