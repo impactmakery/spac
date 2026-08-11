@@ -226,7 +226,8 @@ def main() -> None:
 
     api = Api(args.api, args.email, args.password)
     failures: list[tuple[Path, str]] = []
-    done = 0
+    uploaded = 0
+    skipped_existing = 0
     started = time.monotonic()
     for plan in plans:
         if not plan.files:
@@ -238,7 +239,7 @@ def main() -> None:
         for path in plan.files:
             title = title_for(path, plan.folder)
             if title in already:
-                done += 1
+                skipped_existing += 1
                 continue
             try:
                 api.upload(path, title, muni_id)
@@ -246,12 +247,15 @@ def main() -> None:
                 failures.append((path, str(exc)))
                 print(f"  FAILED {path.name}: {exc}")
                 continue
-            done += 1
-            if done % 25 == 0:
-                rate = done / max(time.monotonic() - started, 1)
-                print(f"  {done}/{total_files} ({rate:.1f}/s)")
+            uploaded += 1
+            if uploaded % 25 == 0:
+                rate = uploaded / max(time.monotonic() - started, 1)
+                done = uploaded + skipped_existing
+                print(f"  {done}/{total_files} ({rate:.1f}/s uploading)")
 
-    print(f"\nuploaded {done - len(failures)} of {total_files}")
+    print(f"\nuploaded {uploaded} of {total_files}")
+    if skipped_existing:
+        print(f"{skipped_existing} were already there and were left alone")
     if failures:
         print(f"{len(failures)} failed:")
         for path, err in failures[:20]:
