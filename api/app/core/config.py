@@ -10,6 +10,12 @@ class Settings(BaseSettings):
         env_file=("../.env", ".env"), env_file_encoding="utf-8", extra="ignore"
     )
 
+    # Tesseract language packs to read with. Arabic is here because two of the
+    # municipalities are Arabic-speaking towns, and without it every scanned or
+    # picture-based document of theirs read as nothing at all. Each extra
+    # language costs OCR time, so this is configuration rather than a fixed
+    # list — and any language added here needs its apt package in the Dockerfile.
+    ocr_languages: str = "heb+eng+ara"
     database_url: str = ""
     jwt_secret: str = ""
     nextauth_url: str = ""

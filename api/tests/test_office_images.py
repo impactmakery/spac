@@ -118,3 +118,55 @@ def test_ocr_failing_on_one_image_does_not_lose_the_others(monkeypatch):
     monkeypatch.setattr("app.rag.extract._image", flaky)
     out = _office_images(office_file({"a.png": 900_000, "b.png": 500_000}))
     assert "readable" in out
+
+
+# --- OCR languages ---------------------------------------------------------
+#
+# Two of the seven municipalities are Arabic-speaking towns. The container
+# shipped with Hebrew and English packs only, so every scanned or picture-based
+# Arabic document read as nothing at all — OCR running correctly and
+# recognising no words, which looks exactly like a document that has none.
+
+
+def test_arabic_is_among_the_languages_we_read():
+    from app.rag.extract import _languages
+
+    assert "ara" in _languages(), "an Arab municipality's documents would be unreadable"
+
+
+def test_hebrew_and_english_are_still_read():
+    from app.rag.extract import _languages
+
+    langs = _languages()
+    assert "heb" in langs
+    assert "eng" in langs
+
+
+def test_the_language_list_is_configuration(monkeypatch):
+    """Another deployment serves other communities; this should not need a code change."""
+    from app.core.config import get_settings
+    from app.rag.extract import _languages
+
+    monkeypatch.setattr(get_settings(), "ocr_languages", "heb+eng+rus")
+    assert _languages() == "heb+eng+rus"
+
+
+def test_an_empty_setting_falls_back_rather_than_breaking_ocr(monkeypatch):
+    from app.core.config import get_settings
+    from app.rag.extract import _languages
+
+    monkeypatch.setattr(get_settings(), "ocr_languages", "")
+    assert _languages() == "heb+eng"
+
+
+def test_every_configured_language_has_a_package_in_the_dockerfile():
+    """A language Tesseract has no pack for makes it fail, not degrade."""
+    from pathlib import Path
+
+    from app.core.config import get_settings
+
+    dockerfile = (Path(__file__).resolve().parents[1] / "Dockerfile").read_text()
+    for lang in get_settings().ocr_languages.split("+"):
+        if lang == "eng":
+            continue  # ships with the base tesseract-ocr package
+        assert f"tesseract-ocr-{lang}" in dockerfile, f"no apt package for {lang}"

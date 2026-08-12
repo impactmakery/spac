@@ -165,7 +165,7 @@ def main() -> None:
     table(
         ["Package", "Role"],
         [
-            ["Tesseract OCR", "The engine. Installed in our own container with Hebrew and English language packs."],
+            ["Tesseract OCR", "The engine. Runs in our own container, with Hebrew, Arabic and English language packs."],
             ["pytesseract ≥0.3.13", "Python binding to it."],
             ["pypdfium2 ≥4.30", "Turns PDF pages into images so Tesseract has something to read."],
         ],
@@ -173,6 +173,7 @@ def main() -> None:
     bullets(
         [
             "Costs no fees — Tesseract runs on our own server, so OCR costs processing time rather than money. It is why scanned documents are the slow part of any bulk upload.",
+            "Arabic — two of the municipalities are Arabic-speaking towns. The system originally read Hebrew and English only, so every scanned or picture-based Arabic document of theirs came back empty. Arabic is now read alongside them.",
             "Hebrew quality — good on clean printed text, weak on handwriting, poor scans and stylised design work. If quality matters more than cost later, Google Document AI or Azure Document Intelligence are markedly better on Hebrew, priced per page.",
             "Licensing — pypdfium2 rather than the more common PyMuPDF, which is AGPL and would place a copyleft obligation on a commercial product.",
         ]

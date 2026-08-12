@@ -57,12 +57,17 @@ text layer, or an Office file whose content is pictures.
 
 | Package | Role |
 | --- | --- |
-| Tesseract OCR | The engine. Installed in the container with Hebrew and English language packs (`tesseract-ocr`, `tesseract-ocr-heb`). |
+| Tesseract OCR | The engine. Installed in the container with Hebrew, Arabic and English language packs. Set by `OCR_LANGUAGES`; any language added there needs its apt package in the Dockerfile, and a test enforces that. |
 | pytesseract ≥0.3.13 | Python binding. |
 | pypdfium2 ≥4.30 | Rasterises PDF pages so Tesseract has something to read. |
 
 **pypdfium2 rather than PyMuPDF.** PyMuPDF is AGPL, which would put a copyleft obligation
 on a commercial product. pypdfium2 is BSD and does the same job here.
+
+**Arabic matters here.** Two of the municipalities are Arabic-speaking towns. The
+container originally shipped Hebrew and English only, so every scanned or picture-based
+Arabic document read as nothing at all — OCR running correctly and recognising no words,
+which is indistinguishable from a document that has none.
 
 **Tesseract is free and runs locally**, so OCR costs no API money — only worker CPU, which
 is why scanned documents are the slow part of any bulk load. Its Hebrew is good on clean

@@ -26,7 +26,17 @@ OCR_DPI = 200  # below ~150 Hebrew diacritics and small print start to fail
 # more than Tesseract needs for readable text; anything larger is scaled down
 # to fit rather than rendered at full size and hoped for.
 OCR_MAX_PIXELS = 8_000_000
-OCR_LANGUAGES = "heb+eng"
+def _languages() -> str:
+    """Which scripts Tesseract should try, from configuration.
+
+    Hebrew and English were the original pair. Arabic was absent, so every
+    scanned or picture-based document belonging to the two Arabic-speaking
+    municipalities read as nothing at all — OCR working perfectly and
+    recognising no words, which looks identical to a document with none.
+    """
+    from app.core.config import get_settings
+
+    return get_settings().ocr_languages or "heb+eng"
 
 # A Word file or slide deck whose text amounts to less than this is very likely
 # a wrapper around pictures — a deck built in a design tool and pasted in, or a
@@ -162,7 +172,7 @@ def _image(content: bytes) -> str:
         return ""
     try:
         with Image.open(_io.BytesIO(content)) as image:
-            return pytesseract.image_to_string(image, lang=OCR_LANGUAGES)
+            return pytesseract.image_to_string(image, lang=_languages())
     except Exception as e:  # noqa: BLE001
         log.warning("image OCR failed: %s", e)
         return ""
@@ -238,7 +248,7 @@ def _ocr_pdf(content: bytes) -> str:
             try:
                 page = pdf[index]
                 image = page.render(scale=_render_scale(page)).to_pil()
-                out.append(pytesseract.image_to_string(image, lang=OCR_LANGUAGES))
+                out.append(pytesseract.image_to_string(image, lang=_languages()))
             except Exception as e:  # noqa: BLE001 — one bad page is not a failure
                 log.warning("OCR failed on page %d: %s", index + 1, e)
             finally:

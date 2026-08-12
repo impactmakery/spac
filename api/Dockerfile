@@ -16,6 +16,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         tesseract-ocr \
         tesseract-ocr-heb \
+        tesseract-ocr-ara \
     && rm -rf /var/lib/apt/lists/*
 
 # Dependencies first so code changes don't invalidate the install layer.
