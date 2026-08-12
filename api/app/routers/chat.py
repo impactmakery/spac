@@ -33,6 +33,7 @@ from app.rag.rewrite import standalone_question
 from app.rag.smalltalk import classify as classify_smalltalk
 from app.rag.smalltalk import reply as smalltalk_reply
 from app.services.citations import build_citations
+from app.services.kb_access import readable_kb_documents
 
 router = APIRouter(prefix="/api", tags=["chat"])
 
@@ -162,15 +163,43 @@ def list_messages(
     ]
 
 
+# Offered when someone has no documents of their own yet — a municipality whose
+# folder was empty would otherwise get a blank screen and no idea what to ask.
+GENERIC_QUESTIONS = {
+    "he": [
+        "אילו נהלים קיימים במחלקת הרווחה?",
+        "מה תהליך הגשת בקשה לתקציב?",
+        "מי אחראי על נגישות ברשות?",
+    ],
+    "en": [
+        "What procedures exist in the welfare department?",
+        "How is a budget request submitted?",
+        "Who is responsible for accessibility?",
+    ],
+}
+
+
 @router.get("/chat/sample-questions", response_model=list[str])
 def sample_questions(
     user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ) -> list[str]:
-    """Four starter questions drawn from knowledge base document titles."""
+    """Four starter questions drawn from document titles this person may read.
+
+    The permission filter is not decoration. A title here names a tender, a
+    committee, a programme — offering another municipality's titles leaks what
+    they are working on, and the question could never be answered anyway
+    because retrieval would correctly find nothing.
+    """
     titles = db.scalars(
-        select(KbDocument.title).order_by(desc(KbDocument.created_at)).limit(4)
+        select(KbDocument.title)
+        .where(readable_kb_documents(user))
+        .order_by(desc(KbDocument.created_at))
+        .limit(4)
     ).all()
-    if user.language == "he":
+    lang = "he" if user.language == "he" else "en"
+    if not titles:
+        return GENERIC_QUESTIONS[lang]
+    if lang == "he":
         return [f"מה כתוב במסמך «{t}»?" for t in titles]
     return [f"What does the document “{t}” say?" for t in titles]
 

@@ -223,3 +223,52 @@ def test_shutdown_leaves_nothing_claimed(db, doc):
     run_pending_jobs(db, limit=2, should_stop=stop_after_first)
     db.expire_all()
     assert not [j for j in db.query(IngestionJob).all() if j.status == "running"]
+
+
+# --- per-job watchdog ------------------------------------------------------
+
+
+def test_a_job_that_overruns_its_budget_is_retried_not_left_running(db, doc, monkeypatch):
+    """A worker that is alive but stuck cannot recover itself.
+
+    The lease only runs at the top of the loop, so a job that never returns
+    stops the queue permanently: one document on "processing" and every other
+    document waiting behind it, with nothing in the logs to say so.
+    """
+    from app.models import IngestionJob
+    from app.services import ingestion
+
+    def hang(_db, _job):
+        raise TimeoutError("job exceeded its budget")
+
+    monkeypatch.setattr(ingestion, "_process", hang)
+    ingestion.enqueue(db, source_type="kb", source_id=doc.id, visibility="global",
+                      storage_key="k", ext="pdf", title=doc.title)
+    db.commit()
+
+    ingestion.run_pending_jobs(db, limit=1)
+
+    db.expire_all()
+    job = db.query(IngestionJob).filter_by(source_id=doc.id).one()
+    assert job.status == "queued", "an overrun must go back to the queue, not stay running"
+    assert job.attempts == 1
+    assert "budget" in (job.last_error or "")
+
+
+def test_the_budget_is_long_enough_for_the_slowest_legitimate_work():
+    """OCR of a 40-page scan is the slowest thing here; it must not be killed."""
+    from app.rag.extract import OCR_MAX_PAGES
+    from app.services.ingestion import JOB_TIMEOUT_SECONDS
+
+    generous_seconds_per_page = 20
+    assert JOB_TIMEOUT_SECONDS >= OCR_MAX_PAGES * generous_seconds_per_page
+
+
+def test_the_watchdog_is_a_no_op_where_it_cannot_arm():
+    """Windows and worker threads have no SIGALRM; the job must still run."""
+    from app.services.ingestion import _time_limit
+
+    ran = False
+    with _time_limit(1):
+        ran = True
+    assert ran

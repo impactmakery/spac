@@ -17,6 +17,12 @@ log = logging.getLogger(__name__)
 
 HISTORY_EXCHANGES = 10  # context window per the scope appendix
 
+# Someone is waiting on a streaming answer, so a slow free-tier model gets
+# room — but a request that never returns holds its connection until the
+# browser gives up, having shown nothing.
+LLM_TIMEOUT_SECONDS = 120.0
+LLM_MAX_RETRIES = 1
+
 SYSTEM_PROMPT = """You are the assistant of the Tomorrow Program platform.
 
 Rules you must never break:
@@ -104,6 +110,11 @@ class ApiGeneration:
             api_key=settings.resolved_llm_key,
             base_url=settings.resolved_llm_base_url,
             default_headers=headers or None,
+            # Someone is watching an answer stream, so a slow model gets room —
+            # but not forever, or the request holds a connection open until the
+            # browser gives up with nothing to show for it.
+            timeout=LLM_TIMEOUT_SECONDS,
+            max_retries=LLM_MAX_RETRIES,
         )
 
         sources = _numbered_sources(chunks)

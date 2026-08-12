@@ -5,9 +5,13 @@ Deleting a source must delete its chunks in the same transaction — that
 happens in the routers; this module only rebuilds chunks for live sources.
 """
 
+import contextlib
 import logging
+import signal
+import sys
+import threading
 import uuid
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select, text
@@ -38,6 +42,46 @@ BACKOFF_BASE_SECONDS = 30
 # other nine were OCR'd. The lease has to outlast a whole slow batch or a
 # healthy worker would have its own work taken away mid-run.
 LEASE_SECONDS = 2 * 60 * 60
+
+# Wall-clock budget for a single job.
+#
+# The lease recovers a job whose worker died. It cannot help a worker that is
+# alive but stuck, because the recovery only runs at the top of the loop and a
+# stuck worker never gets there — the queue simply stops, silently, with one
+# document showing "processing" and every other document waiting behind it.
+#
+# Individual timeouts on each outbound call cover the cases we know about. This
+# covers the ones we do not: whatever a job is blocked on, it gives up, and the
+# ordinary retry path takes over. Generous enough for a 40-page scan going
+# through OCR, which is the slowest legitimate work here.
+JOB_TIMEOUT_SECONDS = 20 * 60
+
+
+@contextlib.contextmanager
+def _time_limit(seconds: int) -> Iterator[None]:
+    """Raise inside the running job once its budget is spent.
+
+    SIGALRM interrupts a blocked syscall, which a timeout on an HTTP client
+    cannot do if the block is somewhere else entirely. Unavailable on Windows
+    and off the main thread, where it simply does not arm — dev machines and
+    the test suite, neither of which is the thing being protected.
+    """
+    # sys.platform rather than hasattr so the type checker narrows too: SIGALRM
+    # and alarm() simply do not exist in the Windows stubs.
+    if sys.platform == "win32" or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def _fire(_signum: int, _frame: object) -> None:
+        raise TimeoutError(f"job exceeded its {seconds}s budget")
+
+    previous = signal.signal(signal.SIGALRM, _fire)
+    signal.alarm(seconds)
+    try:
+        yield
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, previous)
 
 
 def enqueue(
@@ -240,7 +284,8 @@ def run_pending_jobs(
         job.updated_at = datetime.now(UTC)
         db.commit()
         try:
-            _process(db, job)
+            with _time_limit(JOB_TIMEOUT_SECONDS):
+                _process(db, job)
             job.status = "done"
             _set_source_status(db, source_type, source_id, "indexed", None)
             db.commit()

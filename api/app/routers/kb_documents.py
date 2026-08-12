@@ -4,7 +4,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlalchemy import ColumnElement, delete, func, or_, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -13,6 +13,7 @@ from app.models import Chunk, IngestionJob, KbDocument, Municipality, User
 from app.rag.extract import extract_text
 from app.services.audit import record_audit
 from app.services.ingestion import enqueue
+from app.services.kb_access import readable_kb_documents
 from app.services.storage import get_storage
 from app.services.uploads import is_extractable, validate_upload
 
@@ -60,23 +61,10 @@ def _out(db: Session, doc: KbDocument) -> KbDocOut:
     )
 
 
-def _readable(user: User) -> ColumnElement[bool]:
-    """Which documents this person may read, as a WHERE clause.
-
-    The shared library is readable by everyone; a municipality's library only
-    by that municipality. Expressed as SQL rather than a post-filter so a
-    listing and a lookup cannot drift apart.
-    """
-    if user.role == "system_admin":
-        return KbDocument.id.is_not(None)
-    return or_(
-        KbDocument.scope == "global",
-        KbDocument.municipality_id == user.municipality_id,
-    )
-
-
 def _get_or_404(db: Session, doc_id: uuid.UUID, user: User) -> KbDocument:
-    doc = db.scalar(select(KbDocument).where(KbDocument.id == doc_id, _readable(user)))
+    doc = db.scalar(
+        select(KbDocument).where(KbDocument.id == doc_id, readable_kb_documents(user))
+    )
     if doc is None:
         # 404 rather than 403: another municipality's library must not be
         # confirmed to exist by the shape of the error.
@@ -118,7 +106,11 @@ def list_documents(
     Individual documents stay readable by anyone who may see them (see
     get_document), or a citation would lead somewhere they cannot open.
     """
-    q = select(KbDocument).where(_readable(actor)).order_by(KbDocument.created_at.desc())
+    q = (
+        select(KbDocument)
+        .where(readable_kb_documents(actor))
+        .order_by(KbDocument.created_at.desc())
+    )
     if search:
         q = q.where(func.lower(KbDocument.title).like(f"%{search.lower()}%"))
     if scope in ("global", "municipality"):

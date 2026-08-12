@@ -80,6 +80,7 @@ class LocalDiskProvider:
 class R2Provider:
     def _client(self):
         import boto3
+        from botocore.config import Config
 
         s = get_settings()
         return boto3.client(
@@ -88,6 +89,15 @@ class R2Provider:
             aws_access_key_id=s.r2_access_key_id,
             aws_secret_access_key=s.r2_secret_access_key,
             region_name="auto",
+            # The worker downloads every file it indexes through here, one at a
+            # time. A stalled socket with no read timeout stops the queue for
+            # good: the worker never loops again, so even the stalled-job
+            # recovery cannot run. Better to fail and let the queue retry.
+            config=Config(
+                connect_timeout=10,
+                read_timeout=120,
+                retries={"max_attempts": 3, "mode": "standard"},
+            ),
         )
 
     def put(self, key: str, data: bytes, content_type: str) -> None:

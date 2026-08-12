@@ -15,6 +15,12 @@ from app.models import EMBEDDING_DIM
 
 BATCH_SIZE = 100  # chunks per embeddings call (spec)
 
+# An embedding call is a short request. These bound how long one may block the
+# worker: at worst timeout x (retries + 1) before the job fails and is retried
+# by the queue, which is the mechanism that is actually designed for this.
+EMBED_TIMEOUT_SECONDS = 60.0
+EMBED_MAX_RETRIES = 2
+
 
 class EmbeddingProvider(Protocol):
     def embed(self, texts: list[str]) -> list[list[float]]: ...
@@ -34,6 +40,14 @@ class ApiEmbeddings:
         client = OpenAI(
             api_key=settings.resolved_embedding_key,
             base_url=settings.resolved_embedding_base_url,
+            # Without this the client waits ten minutes per attempt and retries,
+            # and the worker is single-threaded: one unlucky call stops the whole
+            # queue. Worse, the worker never reaches the top of its loop again,
+            # so the stalled-job reclaim cannot run either — the recovery for a
+            # hung worker is itself unreachable from inside a hung worker.
+            # A batch of passages answers in seconds; a minute is already generous.
+            timeout=EMBED_TIMEOUT_SECONDS,
+            max_retries=EMBED_MAX_RETRIES,
         )
         out: list[list[float]] = []
         for i in range(0, len(texts), BATCH_SIZE):
