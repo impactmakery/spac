@@ -26,11 +26,15 @@ type DialogState =
 
 export function UsersTable({
   scope,
+  startInviting = false,
   rows,
   departments,
   municipalities,
 }: {
   scope: "admin" | "system";
+  /** Set by ?invite=1, so arriving from another screen lands in the form
+   *  rather than making the person find the button again. */
+  startInviting?: boolean;
   rows: AdminUserRow[];
   /** admin scope: the admin's municipality departments; system scope: [] */
   departments: DepartmentRow[];
@@ -49,11 +53,19 @@ export function UsersTable({
   const [roleFilter, setRoleFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
 
-  const [dialog, setDialog] = useState<DialogState>({ kind: "none" });
+  const [dialog, setDialog] = useState<DialogState>(
+    startInviting ? { kind: "invite" } : { kind: "none" },
+  );
   const [email, setEmail] = useState("");
-  const [inviteMuni, setInviteMuni] = useState("");
+  const [inviteMuni, setInviteMuni] = useState(
+    startInviting && scope === "system" ? (municipalities[0]?.id ?? "") : "",
+  );
   const [selectedDepts, setSelectedDepts] = useState<string[]>([]);
-  const [dialogDepts, setDialogDepts] = useState<DepartmentRow[]>([]);
+  // Opening straight into the invite form has to arrive with the same state
+  // openInvite would have set, or the department list would render empty.
+  const [dialogDepts, setDialogDepts] = useState<DepartmentRow[]>(
+    startInviting && scope === "admin" ? departments : [],
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);

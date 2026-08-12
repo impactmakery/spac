@@ -1,6 +1,6 @@
 "use client";
 
-import { FolderKanban, Plus } from "lucide-react";
+import { FolderKanban, Plus, UserPlus } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import {
@@ -87,10 +87,20 @@ export function DepartmentsClient({
         title={t("title")}
         subtitle={t("subtitle")}
         action={
-          <Button onClick={() => openDialog({ kind: "add" })}>
-            <Plus className="size-4" />
-            {t("add")}
-          </Button>
+          <div className="flex gap-2">
+            {/* Departments exist to put people in, so the next thing anyone
+                wants after making one is to invite somebody to it. ?invite=1
+                opens the form on arrival rather than landing on a list and
+                making them find the button. */}
+            <Button variant="secondary" onClick={() => router.push("/admin/users?invite=1")}>
+              <UserPlus className="size-4" />
+              {t("inviteUser")}
+            </Button>
+            <Button onClick={() => openDialog({ kind: "add" })}>
+              <Plus className="size-4" />
+              {t("add")}
+            </Button>
+          </div>
         }
       />
 

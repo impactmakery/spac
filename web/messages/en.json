@@ -364,7 +364,8 @@
     "nameExists": "An active department with this name already exists",
     "empty": "No departments yet",
     "emptyBody": "Add your municipality's first department.",
-    "emptyArchived": "No archived departments"
+    "emptyArchived": "No archived departments",
+    "inviteUser": "Invite user"
   },
   "usersAdmin": {
     "title": "Users",
