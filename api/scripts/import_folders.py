@@ -31,8 +31,6 @@ from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import httpx
-
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.uploads import CONTENT_TYPES, MAX_UPLOAD_BYTES  # noqa: E402
@@ -137,6 +135,11 @@ def titles_for(paths: list[Path], folder: Path) -> dict[Path, str]:
 
 class Api:
     def __init__(self, base: str, email: str, password: str) -> None:
+        # Imported here rather than at module scope: planning an import and
+        # naming its files needs no HTTP at all, and the tests that cover that
+        # part should not need a web client installed to run.
+        import httpx
+
         self.base = base.rstrip("/")
         # Big presentations over a slow link need far longer than the default.
         self.client = httpx.Client(timeout=300.0)
