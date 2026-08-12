@@ -82,17 +82,24 @@ export function FileDrop({
       role="button"
       tabIndex={0}
       className={cn(
-        "flex cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed px-4 py-7 text-center",
+        // A row rather than a stack: as a centred column of an icon and three
+        // lines this stood nearly four times the height of the link field it
+        // replaces, and choosing it pushed the rest of the form off screen.
+        "flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-3 py-3 text-start",
         "transition-colors focus-visible:outline-2 focus-visible:outline-ring",
         dragging
           ? "border-primary bg-primary/5"
           : "border-border bg-muted/20 hover:border-primary/50 hover:bg-muted/40",
       )}
     >
-      <UploadCloud className="size-6 text-muted-foreground" />
-      <p className="text-sm font-medium text-foreground">{t("dropTitle")}</p>
-      <p className="text-xs text-muted-foreground">{t("dropBrowse")}</p>
-      {hint && <p className="mt-1 text-xs text-muted-foreground">{hint}</p>}
+      <UploadCloud className="size-5 shrink-0 text-muted-foreground" />
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-foreground">{t("dropTitle")}</span>
+        <span className="block text-xs text-muted-foreground">
+          {t("dropBrowse")}
+          {hint ? ` · ${hint}` : ""}
+        </span>
+      </span>
       <input
         ref={inputRef}
         type="file"
