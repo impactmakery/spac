@@ -1,14 +1,23 @@
 "use client";
 
-import { LayoutGrid, Plus, Search } from "lucide-react";
+import { LayoutGrid, List, Plus, Search, Table2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { ItemCard } from "@/components/board/item-card";
+import { ItemList } from "@/components/board/item-list";
+import { ItemTable } from "@/components/board/item-table";
 import { PublishDialog } from "@/components/board/publish-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Button, Input, Select } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { BoardItemRow, CategoryRef } from "@/lib/board-types";
+import {
+  type BoardView,
+  defaultBoardView,
+  readBoardView,
+  subscribeBoardView,
+  writeBoardView,
+} from "@/lib/board-view";
 
 export function BoardPage({
   scope,
@@ -40,6 +49,16 @@ export function BoardPage({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [searchInput, setSearchInput] = useState(search);
+
+  // The server has no localStorage, so the first render is the default and the
+  // remembered choice arrives after hydration. useSyncExternalStore is built
+  // for that, and it keeps a second open tab in step for free.
+  const view = useSyncExternalStore(
+    subscribeBoardView,
+    () => readBoardView(),
+    defaultBoardView,
+  );
+  const chooseView = (next: BoardView) => writeBoardView(next);
   const basePath = scope === "global" ? "/board" : "/municipality";
 
   function navigate(next: Partial<{ search: string; category: string; sort: string; page: string }>) {
@@ -94,6 +113,38 @@ export function BoardPage({
           <option value="newest">{t("sortNewest")}</option>
           <option value="liked">{t("sortLiked")}</option>
         </Select>
+
+        {/* Icons only: three words of chrome beside the filters would compete
+            with them, and each carries its name as a tooltip and a label. */}
+        <div
+          className="flex items-center gap-1 rounded-lg bg-muted p-1"
+          role="group"
+          aria-label={t("viewLabel")}
+        >
+          {(
+            [
+              ["cards", LayoutGrid, t("viewCards")],
+              ["list", List, t("viewList")],
+              ["table", Table2, t("viewTable")],
+            ] as const
+          ).map(([id, Icon, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => chooseView(id)}
+              title={label}
+              aria-label={label}
+              aria-pressed={view === id}
+              className={`rounded-md p-1.5 transition ${
+                view === id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Icon className="size-4" />
+            </button>
+          ))}
+        </div>
       </div>
 
       {items.length === 0 ? (
@@ -110,11 +161,15 @@ export function BoardPage({
         </div>
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => (
-              <ItemCard key={item.id} item={item} />
-            ))}
-          </div>
+          {view === "cards" && (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {items.map((item) => (
+                <ItemCard key={item.id} item={item} />
+              ))}
+            </div>
+          )}
+          {view === "list" && <ItemList items={items} />}
+          {view === "table" && <ItemTable items={items} />}
           {hasMore && (
             <div className="mt-6 flex justify-center">
               <Button variant="secondary" onClick={() => navigate({ page: "1" })}>

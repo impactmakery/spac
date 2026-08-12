@@ -205,7 +205,17 @@
     "removeFile": "Remove file",
     "reply": "Reply",
     "replyPlaceholder": "Write a reply…",
-    "addReaction": "Add a reaction"
+    "addReaction": "Add a reaction",
+    "viewCards": "Cards",
+    "viewList": "List",
+    "viewTable": "Table",
+    "viewLabel": "Layout",
+    "colTitle": "Title",
+    "colCategory": "Category",
+    "colAuthor": "Shared by",
+    "colDate": "Date",
+    "colActivity": "Activity",
+    "activitySummary": "{comments} comments · {likes} likes"
   },
   "departmentArea": {
     "filesTab": "Files",

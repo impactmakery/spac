@@ -44,7 +44,7 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
   }
 
   return (
-    <Card className="flex flex-col p-5 transition-shadow hover:shadow-md">
+    <Card className="flex h-full flex-col p-5 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <CategoryChip category={item.category} />
         {/* Editing and deleting from the board itself: reaching the item page
@@ -100,6 +100,12 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
           {t("promptHeading")}
         </span>
       )}
+
+      {/* Pushes the rule and the byline to the foot of the card, so a row of
+          cards shares one line rather than each landing wherever its own text
+          happened to stop. mt-4 on the footer keeps a gap when the content is
+          long enough to reach it. */}
+      <div className="flex-1" />
 
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
         <span className="truncate">

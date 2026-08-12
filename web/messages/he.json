@@ -205,7 +205,17 @@
     "removeFile": "הסרת הקובץ",
     "reply": "תגובה",
     "replyPlaceholder": "כתבו תגובה…",
-    "addReaction": "הוספת תגובת אימוג׳י"
+    "addReaction": "הוספת תגובת אימוג׳י",
+    "viewCards": "כרטיסים",
+    "viewList": "רשימה",
+    "viewTable": "טבלה",
+    "viewLabel": "תצוגה",
+    "colTitle": "כותרת",
+    "colCategory": "קטגוריה",
+    "colAuthor": "שותף על ידי",
+    "colDate": "תאריך",
+    "colActivity": "פעילות",
+    "activitySummary": "{comments} תגובות · {likes} לייקים"
   },
   "departmentArea": {
     "filesTab": "קבצים",
