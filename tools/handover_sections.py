@@ -10,7 +10,7 @@ STACK = [
     ["Migrations", "Alembic", "Every schema change is a migration, applied automatically on deploy."],
     ["File storage", "Cloudflare R2", "Uploads go through the server; downloads use short-lived signed links."],
     ["Text extraction", "pypdf, python-docx, python-pptx, openpyxl", "One library per format, no heavyweight document toolkit."],
-    ["Scanned documents", "Tesseract OCR (Hebrew + English) with PDFium", "Reads PDFs that are images rather than text."],
+    ["Scanned documents", "Tesseract OCR (Hebrew + English) with PDFium", "Reads PDFs that are images rather than text, and the pictures inside Word files and slide decks whose content is images. Runs in our own container, so it costs no fees — only time."],
     ["AI models", "Any OpenAI-compatible provider (OpenAI, OpenRouter…)", "Chat and embeddings configured separately, each with its own key, and a fallback chain when a model is rate-limited."],
     ["Email", "Resend", "Invitations, password resets and the weekly digest. Live, sending from updates.impactmakery.com."],
     ["Hosting", "Vercel (frontend), Railway (API, worker, cron), Amsterdam region", "Region chosen for latency to Israel."],
@@ -128,7 +128,7 @@ AI_MODELS = [
     ["   ↳ if rate-limited", "OpenRouter", "nvidia/nemotron-3-super-120b-a12b (free tier)", "None"],
     ["   ↳ then", "OpenRouter", "nvidia/nemotron-3-ultra-550b-a55b (free tier)", "None"],
     ["Understanding documents for search", "OpenAI", "text-embedding-3-large", "Paid, per document"],
-    ["Building the knowledge graph", "OpenRouter", "same chain as answering", "None"],
+    ["Building the knowledge graph", "None — pattern matching", "no model is called", "None"],
 ]
 
 AI_NOTES = [

@@ -28,6 +28,21 @@ OCR_DPI = 200  # below ~150 Hebrew diacritics and small print start to fail
 OCR_MAX_PIXELS = 8_000_000
 OCR_LANGUAGES = "heb+eng"
 
+# A Word file or slide deck whose text amounts to less than this is very likely
+# a wrapper around pictures — a deck built in a design tool and pasted in, or a
+# photographed page dropped into a document. Below the threshold the embedded
+# images are read as well; above it they are decoration and not worth the time.
+MIN_CHARS_OFFICE = 200
+
+# Bounds on that pass. Municipal decks carry logos, headers and separators on
+# every slide, and OCR'ing forty copies of a crest costs minutes and returns
+# nothing. Small images are skipped, and only so many are read per document.
+OCR_MIN_IMAGE_BYTES = 40_000
+OCR_MAX_EMBEDDED_IMAGES = 20
+
+# Where each Office format keeps its pictures inside the zip.
+OFFICE_MEDIA_PREFIXES = ("word/media/", "ppt/media/", "xl/media/")
+
 
 class ExtractionError(Exception):
     pass
@@ -74,6 +89,59 @@ def _pdf(content: bytes) -> str:
         if len(scanned.strip()) > len(text.strip()):
             return scanned
     return text
+
+
+def _office_images(content: bytes) -> str:
+    """Read the words in the pictures an Office file wraps around.
+
+    Text extraction only sees text runs, so a deck whose slides are exported
+    images contributes its title and nothing else — four documents in the
+    first real corpus were exactly that, one of them a municipality's main
+    presentation of its welfare services.
+
+    Never raises: this is an improvement on a document that already extracted
+    to almost nothing, and a failure here must not cost it the little it had.
+    """
+    import zipfile
+
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(content))
+    except Exception as e:  # noqa: BLE001
+        log.warning("could not open Office file to read its images: %s", e)
+        return ""
+
+    parts: list[str] = []
+    read = 0
+    for info in sorted(archive.infolist(), key=lambda i: i.filename):
+        if read >= OCR_MAX_EMBEDDED_IMAGES:
+            log.info("stopped after %d embedded images", OCR_MAX_EMBEDDED_IMAGES)
+            break
+        name = info.filename
+        if not name.startswith(OFFICE_MEDIA_PREFIXES):
+            continue
+        if name.rsplit(".", 1)[-1].lower() not in IMAGE_EXTENSIONS:
+            continue  # embedded video, audio, or an unreadable blob
+        if info.file_size < OCR_MIN_IMAGE_BYTES:
+            continue  # a logo or an icon, not a page of text
+        try:
+            text = _image(archive.read(name))
+        except Exception as e:  # noqa: BLE001 — one bad image is not a failure
+            log.warning("OCR failed on embedded image %s: %s", name, e)
+            continue
+        read += 1
+        if text.strip():
+            parts.append(text.strip())
+    return "\n\n".join(parts)
+
+
+def _with_embedded_images(content: bytes, text: str) -> str:
+    """Add what the pictures say when the document itself said almost nothing."""
+    if len(text.strip()) >= MIN_CHARS_OFFICE:
+        return text
+    found = _office_images(content)
+    if not found.strip():
+        return text
+    return f"{text}\n\n{found}".strip()
 
 
 def _image(content: bytes) -> str:
@@ -195,7 +263,8 @@ def _docx(content: bytes) -> str:
     for table in document.tables:
         for row in table.rows:
             parts.append(" | ".join(cell.text for cell in row.cells))
-    return "\n".join(part for part in parts if part.strip())
+    text = "\n".join(part for part in parts if part.strip())
+    return _with_embedded_images(content, text)
 
 
 def _pptx(content: bytes) -> str:
@@ -207,7 +276,8 @@ def _pptx(content: bytes) -> str:
         for shape in slide.shapes:
             if shape.has_text_frame:
                 parts.append(shape.text_frame.text)
-    return "\n".join(part for part in parts if part.strip())
+    text = "\n".join(part for part in parts if part.strip())
+    return _with_embedded_images(content, text)
 
 
 def _xlsx(content: bytes) -> str:
@@ -221,4 +291,5 @@ def _xlsx(content: bytes) -> str:
             cells = [str(c) for c in row if c is not None]
             if cells:
                 parts.append(" | ".join(cells))
-    return "\n".join(parts)
+    text = "\n".join(parts)
+    return _with_embedded_images(content, text)

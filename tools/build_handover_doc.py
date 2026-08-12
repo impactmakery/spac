@@ -403,10 +403,14 @@ bullets(
             "and by asking the assistant.",
         ),
         (
-            "The knowledge graph is built by a language model",
-            "on Hebrew, pattern matching found entities but zero relationships; the "
-            "model found nine in the same paragraph. This runs once per document "
-            "when it is uploaded, not per question.",
+            "The knowledge graph is built by pattern matching, not a model",
+            "the model version finds far more in Hebrew — pattern matching has no "
+            "capitalisation to lean on, so it finds entities but few relationships. "
+            "It was switched off for the first bulk load because building the graph "
+            "with a model meant roughly ten thousand calls against a daily free "
+            "quota. Search, ranking and citations are unaffected; the graph is a "
+            "third way of finding passages, not the only one. Pointing it back at a "
+            "funded model and re-indexing restores the fuller version.",
         ),
     ]
 )
