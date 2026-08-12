@@ -115,20 +115,30 @@ def test_categories_crud_and_merge(client, db, world):
     rows = client.get("/api/categories", headers=muni_headers).json()
     assert {c["name_en"] for c in rows} == {"Tools", "Guides"}
 
-    # only sysadmin mutates
+    # anyone may add one — that is what the publish form needs — but the
+    # destructive operations stay with a system admin
     assert (
         client.post(
             "/api/categories",
             json={"name_he": "x", "name_en": "x"},
             headers=muni_headers,
         ).status_code
+        == 201
+    )
+    assert (
+        client.patch(
+            f"/api/categories/{c1}", json={"name_he": "y"}, headers=muni_headers
+        ).status_code
         == 404
     )
 
     r = client.post(f"/api/categories/{c1}/merge-into/{c2}", headers=sys_headers)
     assert r.status_code == 200
-    rows = client.get("/api/categories", headers=sys_headers).json()
-    assert [c["name_en"] for c in rows] == ["Guides"]
+    # the merged-away category is gone and its target remains; the extra one
+    # added above is beside the point here
+    names = {c["name_en"] for c in client.get("/api/categories", headers=sys_headers).json()}
+    assert "Tools" not in names
+    assert "Guides" in names
 
 
 # --- Hebrew-only categories ---------------------------------------------------

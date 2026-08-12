@@ -2,7 +2,7 @@
 
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
-import { useRouter } from "@/i18n/navigation";
+import { createCategory } from "@/app/[locale]/(app)/admin-actions";
 import { publishBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Dialog } from "@/components/dialog";
 import { FileDrop } from "@/components/board/file-drop";
@@ -22,22 +22,23 @@ export function PublishDialog({
   open,
   onClose,
   onPublished,
+  onCategoryAdded,
   categories,
   defaultDestination,
   canChooseDestination,
-  canManageCategories,
 }: {
   open: boolean;
   onClose: () => void;
   onPublished: () => void;
+  /** Refetch the list after one is added here, so it can be selected. */
+  onCategoryAdded: () => void;
   categories: CategoryRef[];
   defaultDestination: "global" | "municipality";
   canChooseDestination: boolean;
-  canManageCategories: boolean;
 }) {
   const t = useTranslations("board");
+  const tc = useTranslations("common");
   const locale = useLocale();
-  const router = useRouter();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
@@ -52,6 +53,26 @@ export function PublishDialog({
   const [destination, setDestination] = useState(defaultDestination);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Adding a category happens here rather than on a separate screen: the need
+  // for one arrives mid-thought, while filling this form in.
+  const [newCategory, setNewCategory] = useState<string | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  async function addCategory() {
+    const name = (newCategory ?? "").trim();
+    if (!name) return;
+    setSavingCategory(true);
+    const res = await createCategory(name, null, null);
+    setSavingCategory(false);
+    if ("error" in res) {
+      setError(res.status === 409 ? t("categoryExists") : tc("somethingWentWrong"));
+      return;
+    }
+    setNewCategory(null);
+    // The list comes from the server, so it has to be refetched before the new
+    // category can be selected.
+    onCategoryAdded();
+  }
 
   const label = (c: CategoryRef) =>
     locale === "he" ? c.name_he : (c.name_en ?? c.name_he);
@@ -137,23 +158,42 @@ export function PublishDialog({
     return (
       <Dialog open={open} onClose={onClose} title={t("publishTitle")}>
         <p className="text-sm text-muted-foreground">{t("noCategories")}</p>
-        <div className="mt-4 flex justify-end gap-2">
+        {/* Anyone can make the first one, rather than being told to find an
+            administrator before they can post at all. */}
+        <div className="mt-3 flex gap-2">
+          <Input
+            placeholder={t("newCategoryPlaceholder")}
+            value={newCategory ?? ""}
+            onChange={(e) => setNewCategory(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addCategory();
+              }
+            }}
+          />
+          <Button type="button" onClick={addCategory} disabled={savingCategory}>
+            {tc("add")}
+          </Button>
+        </div>
+        <FieldError>{error}</FieldError>
+        <div className="mt-4 flex justify-end">
           <Button type="button" variant="secondary" onClick={onClose}>
             {t("close")}
           </Button>
-          {canManageCategories && (
-            <Button type="button" onClick={() => router.push("/system/categories")}>
-              {t("addCategory")}
-            </Button>
-          )}
         </div>
       </Dialog>
     );
   }
 
   return (
-    <Dialog open={open} onClose={onClose} title={t("publishTitle")}>
-      <form onSubmit={submit} className="space-y-4">
+    <Dialog open={open} onClose={onClose} title={t("publishTitle")} wide>
+      {/* Two columns on a wide screen: what the post *is* on the left, what it
+          *carries* on the right. As one column this was a long scroll, and the
+          publish button sat below the fold on a laptop. One column below md,
+          where side by side would be worse than scrolling. */}
+      <form onSubmit={submit} className="grid gap-x-6 gap-y-4 md:grid-cols-2">
+        <div className="space-y-4">
         <div>
           <Label htmlFor="title">{t("fieldTitle")}</Label>
           <Input
@@ -183,7 +223,7 @@ export function PublishDialog({
             value={categoryId}
             onChange={(e) => {
               if (e.target.value === ADD_CATEGORY) {
-                router.push("/system/categories");
+                setNewCategory("");
                 return;
               }
               setCategoryId(e.target.value);
@@ -194,12 +234,39 @@ export function PublishDialog({
                 {label(c)}
               </option>
             ))}
-            {/* Only system admins may create categories, so anyone else would
-                be sent to a page that legitimately 404s. */}
-            {canManageCategories && (
-              <option value={ADD_CATEGORY}>+ {t("addCategory")}</option>
-            )}
+            {/* Anyone may add one; it opens a field below rather than sending
+                them to a screen most people cannot reach. */}
+            <option value={ADD_CATEGORY}>+ {t("addCategory")}</option>
           </Select>
+
+          {newCategory !== null && (
+            <div className="mt-2 flex gap-2">
+              <Input
+                autoFocus
+                placeholder={t("newCategoryPlaceholder")}
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter here must add the category, not submit the post
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addCategory();
+                  }
+                  if (e.key === "Escape") setNewCategory(null);
+                }}
+              />
+              <Button type="button" onClick={addCategory} disabled={savingCategory}>
+                {tc("add")}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setNewCategory(null)}
+              >
+                {t("close")}
+              </Button>
+            </div>
+          )}
         </div>
 
         <div>
@@ -263,6 +330,9 @@ export function PublishDialog({
           </div>
         )}
 
+        </div>
+
+        <div className="space-y-4">
         <div>
           <Label>{t("contentType")}</Label>
           <div className="mb-2 flex gap-2">
@@ -343,10 +413,14 @@ export function PublishDialog({
           </div>
         )}
 
-        <FieldError>{error}</FieldError>
-        <Button type="submit" disabled={busy} className="w-full">
-          {t("send")}
-        </Button>
+        </div>
+
+        <div className="space-y-3 md:col-span-2">
+          <FieldError>{error}</FieldError>
+          <Button type="submit" disabled={busy} className="w-full">
+            {t("send")}
+          </Button>
+        </div>
       </form>
     </Dialog>
   );

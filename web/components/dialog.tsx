@@ -9,11 +9,14 @@ export function Dialog({
   onClose,
   title,
   children,
+  wide = false,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** Room for two columns, for forms that would otherwise be a long scroll. */
+  wide?: boolean;
 }) {
   if (!open) return null;
   return (
@@ -33,7 +36,11 @@ export function Dialog({
         The title and close button sit outside the scrolling region, so they
         stay put instead of sliding away as the form is filled in.
       */}
-      <Card className="relative z-10 flex max-h-[calc(100dvh-2rem)] w-full max-w-md flex-col p-6">
+      <Card
+        className={`relative z-10 flex max-h-[calc(100dvh-2rem)] w-full flex-col p-6 ${
+          wide ? "max-w-3xl" : "max-w-md"
+        }`}
+      >
         <button
           onClick={onClose}
           className="absolute end-4 top-4 rounded-lg p-1 text-muted-foreground hover:bg-muted"

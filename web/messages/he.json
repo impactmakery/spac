@@ -20,7 +20,8 @@
     "deactivate": "השבתה",
     "deleteTitle": "למחוק?",
     "deactivateTitle": "להשבית?",
-    "somethingWentWrong": "משהו השתבש. נסו שוב."
+    "somethingWentWrong": "משהו השתבש. נסו שוב.",
+    "add": "הוספה"
   },
   "auth": {
     "login": {
@@ -234,7 +235,9 @@
     "acceptAnswer": "סמנו כתשובה",
     "acceptedAnswer": "התשובה שהתקבלה",
     "unacceptAnswer": "הסירו את הסימון",
-    "addTimeOptional": "הוסיפו שעה (לא חובה)"
+    "addTimeOptional": "הוסיפו שעה (לא חובה)",
+    "newCategoryPlaceholder": "שם הקטגוריה",
+    "categoryExists": "הקטגוריה הזו כבר קיימת."
   },
   "departmentArea": {
     "filesTab": "קבצים",

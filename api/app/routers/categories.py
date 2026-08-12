@@ -66,9 +66,20 @@ def list_categories(
 @router.post("", status_code=201, response_model=CategoryOut)
 def create_category(
     body: CategoryIn,
-    actor: User = Depends(require_system_admin),
+    actor: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> CategoryOut:
+    """Anyone may add a category, from the publish form.
+
+    Needing an administrator meant people filed things under whichever category
+    already existed, which is worse for finding them later than an occasional
+    surplus one. The cost of a wrong category is low: it cannot be deleted
+    while anything uses it, duplicates are refused, and every one carries the
+    name of whoever added it in the audit log.
+
+    Renaming, merging and deleting stay with a system admin, who has the screen
+    for them.
+    """
     english = (body.name_en or "").strip() or None
     clash = func.lower(Category.name_he) == body.name_he.lower()
     if english:
@@ -93,6 +104,13 @@ def rename_category(
     actor: User = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ) -> CategoryOut:
+    """Renaming stays with a system admin.
+
+    Categories are shared by every municipality, so a rename changes the label
+    on everyone's board — and only an admin has a screen for managing them.
+    Adding one is the open act, because that is what people need mid-thought
+    while publishing.
+    """
     cat = _get_or_404(db, category_id)
     before = {"name_he": cat.name_he, "name_en": cat.name_en, "color": cat.color}
     cat.name_he = body.name_he

@@ -33,7 +33,6 @@ export default async function GlobalBoardPage({
       hasMore={data.has_more}
       categories={categories}
       canChooseDestination={session?.user.municipalityId != null}
-      canManageCategories={session?.user.role === "system_admin"}
       search={search}
       categoryId={category}
       sort={sort}

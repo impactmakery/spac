@@ -44,7 +44,6 @@ export default async function MunicipalityBoardPage({
       hasMore={data.has_more}
       categories={categories}
       canChooseDestination
-      canManageCategories={session.user.role === "system_admin"}
       search={search}
       categoryId={category}
       sort={sort}

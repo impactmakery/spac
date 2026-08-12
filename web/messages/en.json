@@ -20,7 +20,8 @@
     "deactivate": "Deactivate",
     "deleteTitle": "Delete this?",
     "deactivateTitle": "Deactivate this?",
-    "somethingWentWrong": "Something went wrong. Please try again."
+    "somethingWentWrong": "Something went wrong. Please try again.",
+    "add": "Add"
   },
   "auth": {
     "login": {
@@ -234,7 +235,9 @@
     "acceptAnswer": "Mark as the answer",
     "acceptedAnswer": "Accepted answer",
     "unacceptAnswer": "Remove the mark",
-    "addTimeOptional": "Add a time (optional)"
+    "addTimeOptional": "Add a time (optional)",
+    "newCategoryPlaceholder": "Name the category",
+    "categoryExists": "That category already exists."
   },
   "departmentArea": {
     "filesTab": "Files",

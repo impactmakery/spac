@@ -50,8 +50,12 @@ CASES = [
     # system-admin-only surfaces
     ("GET", "/api/municipalities", None, {"a1@x.org": 404, "u1@x.org": 404}),
     ("POST", "/api/municipalities", {"name": "Nope"}, {"a1@x.org": 404, "u1@x.org": 404}),
-    ("POST", "/api/categories", {"name_he": "x", "name_en": "y"},
+    # Creating a category is deliberately open to everyone — the publish form
+    # needs it mid-thought. Changing or removing one is not: those relabel or
+    # remove something every municipality shares.
+    ("PATCH", "/api/categories/{cat}", {"name_he": "x"},
      {"a1@x.org": 404, "u1@x.org": 404}),
+    ("DELETE", "/api/categories/{cat}", None, {"a1@x.org": 404, "u1@x.org": 404}),
     # admin-only surfaces
     ("GET", "/api/admin/users", None, {"u1@x.org": 404}),
     ("GET", "/api/departments", None, {"u1@x.org": 404}),
