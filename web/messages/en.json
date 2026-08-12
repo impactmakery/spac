@@ -404,7 +404,8 @@
     "deactivateConfirm": "The user is signed out immediately and cannot sign in. Continue?",
     "save": "Save",
     "empty": "No users yet",
-    "emptyBody": "Invite the first user."
+    "emptyBody": "Invite the first user.",
+    "addDepartment": "Add department"
   },
   "profile": {
     "title": "Profile",

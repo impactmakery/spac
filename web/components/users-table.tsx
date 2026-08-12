@@ -403,11 +403,29 @@ export function UsersTable({
                     {d.name}
                   </label>
                 ))}
+                {dialogDepts.length === 0 && (
+                  <p className="text-sm text-muted-foreground">{t("noDepartments")}</p>
+                )}
               </div>
               {dialog.kind === "invite" && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("inviteDepartmentsHelp")}
-                </p>
+                <>
+                  {/* The department someone should join may not exist yet, and
+                      finding that out mid-invitation used to mean abandoning
+                      the form to go looking for the right screen. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDialog({ kind: "none" });
+                      router.push("/admin/departments");
+                    }}
+                    className="mt-1.5 text-xs font-medium text-primary hover:underline"
+                  >
+                    + {t("addDepartment")}
+                  </button>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("inviteDepartmentsHelp")}
+                  </p>
+                </>
               )}
             </div>
           )}
