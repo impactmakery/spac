@@ -28,7 +28,7 @@ export default async function KnowledgePage() {
   return (
     <KnowledgeClient
       docs={docs}
-      isSystemAdmin={isSystem}
+      role={role}
       municipalities={municipalities.map((m) => ({ id: m.id, name: m.name }))}
       ownMunicipality={
         session?.user.municipalityId && session.user.municipalityName

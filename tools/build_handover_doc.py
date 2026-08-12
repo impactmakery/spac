@@ -198,8 +198,9 @@ table(
     ["Page / feature", "Route", "System admin", "Municipality admin", "Department user"],
     [
         ["Assistant (chat)", "/chat", "Yes", "Yes", "Yes"],
-        ["Shared library — browse & search", "/knowledge", "Yes", "Yes", "No"],
+        ["Shared library — browse & search", "/knowledge", "Yes", "No", "No"],
         ["Shared library — upload, edit, delete", "/knowledge", "Yes", "No", "No"],
+        ["Read shared-library content", "via the assistant", "Yes", "Yes", "Yes"],
         ["Own municipality's library — browse", "/knowledge", "Any municipality",
          "Own municipality", "No"],
         ["Own municipality's library — upload, edit, delete", "/knowledge",

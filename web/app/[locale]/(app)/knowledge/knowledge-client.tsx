@@ -10,26 +10,21 @@ import { useToast } from "@/components/toast";
 import { Button, Input } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
-
-interface MunicipalityRef {
-  id: string;
-  name: string;
-}
-
-/** Which library is on screen: the shared one, or one municipality's. */
-type Library = { kind: "global" } | { kind: "municipality"; id: string; name: string };
+import { type Library, libraryTabs, type MunicipalityRef, sameLibrary } from "@/lib/libraries";
+import type { Role } from "@/lib/roles";
 
 export function KnowledgeClient({
   docs,
-  isSystemAdmin,
+  role,
   municipalities,
   ownMunicipality,
 }: {
   docs: KbDocRow[];
-  isSystemAdmin: boolean;
+  role: Role | undefined;
   municipalities: MunicipalityRef[];
   ownMunicipality: MunicipalityRef | null;
 }) {
+  const isSystemAdmin = role === "system_admin";
   const t = useTranslations("knowledge");
   const router = useRouter();
   const toast = useToast();
@@ -37,25 +32,12 @@ export function KnowledgeClient({
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
 
-  // A municipality admin has two libraries at most: the shared one they read,
-  // and their own which they fill. A system admin has one per municipality.
-  const tabs: Library[] = useMemo(() => {
-    const list: Library[] = [{ kind: "global" }];
-    const source = isSystemAdmin
-      ? municipalities
-      : ownMunicipality
-        ? [ownMunicipality]
-        : [];
-    for (const m of source) list.push({ kind: "municipality", id: m.id, name: m.name });
-    return list;
-  }, [isSystemAdmin, municipalities, ownMunicipality]);
-
-  // A municipality admin lands on their own library — the one they can add to.
-  const [active, setActive] = useState<Library>(
-    !isSystemAdmin && ownMunicipality
-      ? { kind: "municipality", id: ownMunicipality.id, name: ownMunicipality.name }
-      : { kind: "global" },
+  const tabs = useMemo(
+    () => libraryTabs(role, municipalities, ownMunicipality),
+    [role, municipalities, ownMunicipality],
   );
+
+  const [active, setActive] = useState<Library>(tabs[0] ?? { kind: "global" });
 
   // Only a system admin curates the shared library; everyone else reads it.
   const canUpload = active.kind === "global" ? isSystemAdmin : true;
@@ -144,9 +126,7 @@ export function KnowledgeClient({
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted p-1">
           {tabs.map((tab) => {
             const key = tab.kind === "global" ? "global" : tab.id;
-            const isActive =
-              tab.kind === active.kind &&
-              (tab.kind === "global" || tab.id === (active as { id: string }).id);
+            const isActive = sameLibrary(tab, active);
             return (
               <button
                 key={key}
