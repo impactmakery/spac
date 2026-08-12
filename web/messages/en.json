@@ -259,7 +259,8 @@
     "municipalityBanner": "{name}'s own library. Only this municipality can see these documents, and the assistant uses them when answering its staff.",
     "uploadingCount": "{done} of {total}",
     "uploadingFailed": "{count, plural, one {# file could not be uploaded} other {# files could not be uploaded}}",
-    "indexingInProgress": "{count, plural, one {# document is still being read} other {# documents are still being read}} — this page updates itself."
+    "indexingInProgress": "{count, plural, one {# document is still being read} other {# documents are still being read}} — this page updates itself.",
+    "uploadFailed": "could not be sent — try again, or upload it in a smaller file"
   },
   "municipalities": {
     "title": "Municipalities",

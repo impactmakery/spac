@@ -113,14 +113,24 @@ export function KnowledgeClient({
         fd.append("scope", "municipality");
         fd.append("municipality_id", active.id);
       }
-      const res = await uploadKbDocument(fd);
-      if ("error" in res) {
-        const msg =
-          res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error;
-        toast(`${file.name}: ${msg}`, "error");
+      // The action can reject outright rather than returning an error — the
+      // request is refused before any of our code runs when it is too large
+      // for the transport. Uncaught, that ended the whole loop with no toast,
+      // no refresh, and the progress panel left on screen: the upload looked
+      // like it had simply vanished, which is exactly what people reported.
+      try {
+        const res = await uploadKbDocument(fd);
+        if ("error" in res) {
+          const msg =
+            res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error;
+          toast(`${file.name}: ${msg}`, "error");
+          failed += 1;
+        } else {
+          added += 1;
+        }
+      } catch {
+        toast(`${file.name}: ${t("uploadFailed")}`, "error");
         failed += 1;
-      } else {
-        added += 1;
       }
     }
     setUpload(null);
