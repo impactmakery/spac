@@ -2,16 +2,21 @@
 
 import { Building2, Globe, Layers, Search, Upload } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { uploadKbDocument } from "@/app/[locale]/(app)/kb-actions";
 import { KbDocListRow } from "@/components/kb-doc-row";
 import { PageHeader } from "@/components/page-header";
 import { useToast } from "@/components/toast";
+import { type UploadState, UploadProgress } from "@/components/upload-progress";
 import { Button, Input } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
 import { type Library, libraryTabs, type MunicipalityRef, sameLibrary } from "@/lib/libraries";
 import type { Role } from "@/lib/roles";
+
+// Often enough to feel live, rarely enough that a library left open overnight
+// is not making a request every second.
+const REFRESH_MS = 4000;
 
 export function KnowledgeClient({
   docs,
@@ -30,7 +35,21 @@ export function KnowledgeClient({
   const toast = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [search, setSearch] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [upload, setUpload] = useState<UploadState | null>(null);
+  const busy = upload !== null;
+
+  // Indexing happens in a worker, so a document that has just been uploaded sits
+  // at Pending and this page — rendered on the server — would keep saying so
+  // until someone reloaded it. Refresh while anything is still being worked on,
+  // and stop as soon as nothing is: no timer runs on a settled library.
+  const working = docs.filter(
+    (d) => d.status === "pending" || d.status === "processing",
+  ).length;
+  useEffect(() => {
+    if (working === 0) return;
+    const timer = setInterval(() => router.refresh(), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [working, router]);
 
   const tabs = useMemo(
     () => libraryTabs(role, municipalities, ownMunicipality),
@@ -63,13 +82,16 @@ export function KnowledgeClient({
 
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;
-    setBusy(true);
     // Uploading a folder at a time is the normal case here, so each file is
     // reported on its own rather than the whole batch failing as one.
+    const list = Array.from(files);
     let added = 0;
-    for (const file of Array.from(files)) {
+    let failed = 0;
+    for (const [index, file] of list.entries()) {
+      setUpload({ done: index, total: list.length, current: file.name, failed });
       if (file.size > 25 * 1024 * 1024) {
         toast(`${file.name}: ${t("fileTooLarge")}`, "error");
+        failed += 1;
         continue;
       }
       const fd = new FormData();
@@ -83,15 +105,18 @@ export function KnowledgeClient({
         const msg =
           res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error;
         toast(`${file.name}: ${msg}`, "error");
+        failed += 1;
       } else {
         added += 1;
       }
     }
-    setBusy(false);
+    setUpload(null);
     if (added) {
       toast(t("uploaded", { count: added }), "success");
-      router.refresh();
     }
+    // Refresh either way: a failure may still have changed what is on screen,
+    // and the poll above needs the new statuses to know it has work to watch.
+    router.refresh();
   }
 
   return (
@@ -121,6 +146,14 @@ export function KnowledgeClient({
           ) : undefined
         }
       />
+
+      {upload && <UploadProgress state={upload} />}
+
+      {working > 0 && !upload && (
+        <p className="mb-4 text-sm text-muted-foreground" role="status" aria-live="polite">
+          {t("indexingInProgress", { count: working })}
+        </p>
+      )}
 
       {tabs.length > 1 && (
         <div className="mb-4 flex flex-wrap gap-1 rounded-xl bg-muted p-1">

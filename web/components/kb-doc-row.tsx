@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Trash2 } from "lucide-react";
+import { FileText, Loader2, Trash2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { Badge, Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
@@ -16,7 +16,15 @@ export function StatusChip({ status }: { status: KbDocRow["status"] }) {
     not_indexable: { tone: "destructive" as const, label: t("statusNotIndexable") },
   };
   const it = map[status];
-  return <Badge tone={it.tone}>{it.label}</Badge>;
+  // A document being worked on says so, rather than looking like a document
+  // that has stalled. The page refreshes itself while any of these are showing.
+  const working = status === "pending" || status === "processing";
+  return (
+    <Badge tone={it.tone}>
+      {working && <Loader2 className="me-1 inline size-3 animate-spin align-[-2px]" />}
+      {it.label}
+    </Badge>
+  );
 }
 
 export function KbDocListRow({
