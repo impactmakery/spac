@@ -159,21 +159,21 @@ para("")
 h("Municipality accounts", 2)
 para(
     "One administrator per municipality, created on 12 August 2026 alongside their "
-    "documents. Each can reach only their own municipality. All seven currently "
-    f"share the password {_args.municipality_password}, and all have the weekly "
-    "digest switched off because the addresses are placeholders — give each its own "
-    "password and real address before staff use them."
+    "documents. Each can reach only their own municipality. All seven share the same "
+    "password for now, and all have the weekly digest switched off because the "
+    "addresses are placeholders — give each its own password and a real address "
+    "before staff use them."
 )
 table(
-    ["Email", "Municipality", "Contact named in the folder"],
+    ["Email", "Municipality", "Contact named in the folder", "Password"],
     [
-        ["deiralasad@impactmakery.com", "דיר אל אסד", "הנד"],
-        ["hurfeish@impactmakery.com", "חורפיש", "אסיה"],
-        ["maaleyosef@impactmakery.com", "מעלה יוסף", "לב"],
-        ["nahariya@impactmakery.com", "נהריה", "אלצ׳ין"],
-        ["tzfat@impactmakery.com", "צפת", "אוריאל"],
-        ["kiryatshmona@impactmakery.com", "קריית שמונה", "מתניה"],
-        ["shlomi@impactmakery.com", "שלומי", "אליהו"],
+        ["deiralasad@impactmakery.com", "דיר אל אסד", "הנד", _args.municipality_password],
+        ["hurfeish@impactmakery.com", "חורפיש", "אסיה", _args.municipality_password],
+        ["maaleyosef@impactmakery.com", "מעלה יוסף", "לב", _args.municipality_password],
+        ["nahariya@impactmakery.com", "נהריה", "אלצ׳ין", _args.municipality_password],
+        ["tzfat@impactmakery.com", "צפת", "אוריאל", _args.municipality_password],
+        ["kiryatshmona@impactmakery.com", "קריית שמונה", "מתניה", _args.municipality_password],
+        ["shlomi@impactmakery.com", "שלומי", "אליהו", _args.municipality_password],
     ],
 )
 
