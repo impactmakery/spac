@@ -7,7 +7,7 @@ import { publishBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Dialog } from "@/components/dialog";
 import { FileDrop } from "@/components/board/file-drop";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
-import type { CategoryRef } from "@/lib/board-types";
+import type { BoardKind, CategoryRef } from "@/lib/board-types";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_PROMPT = 20000;
@@ -41,6 +41,10 @@ export function PublishDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [categoryId, setCategoryId] = useState(categories[0]?.id ?? "");
+  const [kind, setKind] = useState<BoardKind>("post");
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventLocation, setEventLocation] = useState("");
   const [mode, setMode] = useState<Mode>("link");
   const [link, setLink] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -58,6 +62,10 @@ export function PublishDialog({
     setLink("");
     setFile(null);
     setPromptText("");
+    setKind("post");
+    setEventDate("");
+    setEventTime("");
+    setEventLocation("");
     setError(null);
   }
 
@@ -69,14 +77,19 @@ export function PublishDialog({
     // A link may accompany a prompt — "here is the brief, and here is where the
     // agent lives" — so the link is validated whenever one was typed.
     if (link.trim() && !link.startsWith("https://")) return setError(t("errLink"));
-    if (mode === "link" && !link.trim()) return setError(t("errContent"));
+    if (kind === "event" && !eventDate) return setError(t("eventDateRequired"));
+
+    // Only a plain post must carry something. For the other kinds the words
+    // are the point, and an attachment is welcome but not demanded.
+    const needsContent = kind === "post";
+    if (needsContent && mode === "link" && !link.trim()) return setError(t("errContent"));
     if (mode === "file") {
-      if (!file) return setError(t("errContent"));
+      if (needsContent && !file) return setError(t("errContent"));
       // Any file type is accepted; only the size is the client's business.
-      if (file.size > MAX_FILE_BYTES) return setError(t("errFileSize"));
+      if (file && file.size > MAX_FILE_BYTES) return setError(t("errFileSize"));
     }
     if (mode === "prompt") {
-      if (!promptText.trim()) return setError(t("errContent"));
+      if (needsContent && !promptText.trim()) return setError(t("errContent"));
       if (promptText.length > MAX_PROMPT) return setError(t("errPromptLength"));
     }
 
@@ -86,6 +99,13 @@ export function PublishDialog({
     fd.append("category_id", categoryId);
     fd.append("destination", destination);
     if (description.trim()) fd.append("description", description.trim());
+    fd.append("kind", kind);
+    if (kind === "event") {
+      // Time is sent only when given, so the server can record that the day
+      // was announced without an hour rather than inventing midnight.
+      fd.append("event_at", eventTime ? `${eventDate}T${eventTime}` : eventDate);
+      if (eventLocation.trim()) fd.append("event_location", eventLocation.trim());
+    }
     if (link.trim()) fd.append("link_url", link.trim());
     if (mode === "file" && file) fd.append("file", file);
     if (mode === "prompt" && promptText.trim())
@@ -101,7 +121,9 @@ export function PublishDialog({
             ? t("errFileSize")
             : res.error === "link_must_be_https"
               ? t("errLink")
-              : t("errContent"),
+              : res.error === "event_date_required" || res.error === "invalid_event_date"
+                ? t("eventDateRequired")
+                : t("errContent"),
       );
       return;
     }
@@ -179,6 +201,67 @@ export function PublishDialog({
             )}
           </Select>
         </div>
+
+        <div>
+          <Label>{t("kindLabel")}</Label>
+          <div className="flex flex-wrap gap-2">
+            {(["post", "announcement", "event", "question"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                className={cn(
+                  "rounded-full px-4 py-1.5 text-sm font-medium",
+                  kind === k
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-accent",
+                )}
+              >
+                {k === "post"
+                  ? t("kindPost")
+                  : k === "announcement"
+                    ? t("kindAnnouncement")
+                    : k === "event"
+                      ? t("kindEvent")
+                      : t("kindQuestion")}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {kind === "event" && (
+          <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+            <div className="flex flex-wrap gap-3">
+              <div className="min-w-40 flex-1">
+                <Label htmlFor="event-date">{t("eventDate")}</Label>
+                <Input
+                  id="event-date"
+                  type="date"
+                  value={eventDate}
+                  onChange={(e) => setEventDate(e.target.value)}
+                />
+              </div>
+              <div className="min-w-32">
+                <Label htmlFor="event-time">{t("addTimeOptional")}</Label>
+                <Input
+                  id="event-time"
+                  type="time"
+                  value={eventTime}
+                  onChange={(e) => setEventTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="event-place">{t("eventLocation")}</Label>
+              <Input
+                id="event-place"
+                placeholder={t("eventLocationPlaceholder")}
+                value={eventLocation}
+                onChange={(e) => setEventLocation(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
 
         <div>
           <Label>{t("contentType")}</Label>

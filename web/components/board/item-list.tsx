@@ -3,6 +3,7 @@
 import { FileText, Heart, Link2, MessageCircle, Sparkles } from "lucide-react";
 import { useFormatter } from "next-intl";
 import { CategoryChip } from "@/components/board/item-card";
+import { AnsweredBadge, KindBadge } from "@/components/board/kind-badge";
 import { Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
@@ -39,7 +40,9 @@ export function ItemList({ items }: { items: BoardItemRow[] }) {
               {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
             </span>
           </Link>
-          <span className="hidden shrink-0 sm:block">
+          <span className="hidden shrink-0 items-center gap-1.5 sm:flex">
+            <KindBadge kind={item.kind} />
+            <AnsweredBadge item={item} />
             <CategoryChip category={item.category} />
           </span>
           <span className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">

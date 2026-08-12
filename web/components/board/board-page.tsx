@@ -2,7 +2,7 @@
 
 import { LayoutGrid, List, Plus, Search, Table2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { ItemCard } from "@/components/board/item-card";
 import { ItemList } from "@/components/board/item-list";
 import { ItemTable } from "@/components/board/item-table";
@@ -11,6 +11,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button, Input, Select } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { BoardItemRow, CategoryRef } from "@/lib/board-types";
+import { withEventsFirst } from "@/lib/board-kinds";
 import {
   type BoardView,
   defaultBoardView,
@@ -60,6 +61,11 @@ export function BoardPage({
   );
   const chooseView = (next: BoardView) => writeBoardView(next);
   const basePath = scope === "global" ? "/board" : "/municipality";
+
+  // What is coming up goes to the top. A board where the training day is
+  // buried under last week's posts is not a board anyone checks for it.
+  // Finished events fall back among the rest — still findable, no longer news.
+  const ordered = useMemo(() => withEventsFirst(items), [items]);
 
   function navigate(next: Partial<{ search: string; category: string; sort: string; page: string }>) {
     const params = new URLSearchParams();
@@ -163,13 +169,13 @@ export function BoardPage({
         <>
           {view === "cards" && (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {items.map((item) => (
+              {ordered.map((item) => (
                 <ItemCard key={item.id} item={item} />
               ))}
             </div>
           )}
-          {view === "list" && <ItemList items={items} />}
-          {view === "table" && <ItemTable items={items} />}
+          {view === "list" && <ItemList items={ordered} />}
+          {view === "table" && <ItemTable items={ordered} />}
           {hasMore && (
             <div className="mt-6 flex justify-center">
               <Button variant="secondary" onClick={() => navigate({ page: "1" })}>

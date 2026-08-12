@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { CategoryChip } from "@/components/board/item-card";
+import { AnsweredBadge, KindBadge } from "@/components/board/kind-badge";
 import { Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
@@ -120,12 +121,16 @@ export function ItemTable({ items }: { items: BoardItemRow[] }) {
           {sorted.map((item) => (
             <tr key={item.id} className="hover:bg-muted/40">
               <td className="max-w-xs px-4 py-2.5">
-                <Link
-                  href={`/board/${item.id}`}
-                  className="block truncate font-medium text-foreground hover:underline"
-                >
-                  {item.title}
-                </Link>
+                <span className="flex items-center gap-2">
+                  <Link
+                    href={`/board/${item.id}`}
+                    className="min-w-0 truncate font-medium text-foreground hover:underline"
+                  >
+                    {item.title}
+                  </Link>
+                  <KindBadge kind={item.kind} />
+                  <AnsweredBadge item={item} />
+                </span>
               </td>
               <td className="px-4 py-2.5">
                 <CategoryChip category={item.category} />

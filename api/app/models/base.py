@@ -189,6 +189,9 @@ class KbDocument(Base):
             "scope != 'municipality' OR municipality_id IS NOT NULL",
             name="ck_kb_documents_muni_scope",
         ),
+        # Declared here as well as in its migration, or autogenerate proposes
+        # dropping an index it cannot see on the model.
+        Index("ix_kb_documents_scope_municipality", "scope", "municipality_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -289,11 +292,31 @@ class IngestionJob(Base):
 
 
 class BoardItem(Base):
-    """Board post: global board or one municipality's board. File XOR link."""
+    """Board post: global board or one municipality's board. File XOR link.
+
+    `kind` is what sort of thing the post is, which is separate from what it
+    carries: an event can still have a file attached, an announcement can still
+    have a link. 'post' is what every existing row is and what the form still
+    produces by default.
+    """
 
     __tablename__ = "board_items"
     __table_args__ = (
         CheckConstraint("scope IN ('global','municipality')", name="ck_board_items_scope"),
+        CheckConstraint(
+            "kind IN ('post','announcement','event','question')",
+            name="ck_board_items_kind",
+        ),
+        # An event without a date could not be listed among what is coming up,
+        # which is the only reason to mark one.
+        CheckConstraint(
+            "kind != 'event' OR event_at IS NOT NULL", name="ck_board_items_event_at"
+        ),
+        # Only a question can have an answer accepted.
+        CheckConstraint(
+            "accepted_comment_id IS NULL OR kind = 'question'",
+            name="ck_board_items_accepted_question",
+        ),
         CheckConstraint(
             "scope != 'municipality' OR municipality_id IS NOT NULL",
             name="ck_board_items_muni_scope",
@@ -303,6 +326,8 @@ class BoardItem(Base):
             name="ck_board_items_indexing",
         ),
         Index("ix_board_items_scope", "scope", "municipality_id", "created_at"),
+        # "what is coming up" is a scan of one kind ordered by date
+        Index("ix_board_items_event", "kind", "event_at"),
         Index("ix_board_items_search", "search", postgresql_using="gin"),
     )
 
@@ -313,6 +338,19 @@ class BoardItem(Base):
         ForeignKey("categories.id", ondelete="RESTRICT"), nullable=False
     )
     scope: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="post")
+    # When and where an event happens. Time is optional — plenty of things are
+    # announced as a day before an hour is settled.
+    event_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    event_has_time: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    event_location: Mapped[str | None] = mapped_column(Text)
+    # The reply the asker marked as the one that answered it. Set null rather
+    # than cascading when that comment goes: the question stays, unanswered.
+    accepted_comment_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("board_comments.id", ondelete="SET NULL")
+    )
     municipality_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("municipalities.id", ondelete="CASCADE")
     )

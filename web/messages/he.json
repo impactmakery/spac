@@ -19,7 +19,8 @@
     "updated": "עודכן",
     "deactivate": "השבתה",
     "deleteTitle": "למחוק?",
-    "deactivateTitle": "להשבית?"
+    "deactivateTitle": "להשבית?",
+    "somethingWentWrong": "משהו השתבש. נסו שוב."
   },
   "auth": {
     "login": {
@@ -215,7 +216,25 @@
     "colAuthor": "שותף על ידי",
     "colDate": "תאריך",
     "colActivity": "פעילות",
-    "activitySummary": "{comments} תגובות · {likes} לייקים"
+    "activitySummary": "{comments} תגובות · {likes} לייקים",
+    "kindLabel": "מה זה?",
+    "kindPost": "פוסט",
+    "kindAnnouncement": "הודעה",
+    "kindEvent": "אירוע",
+    "kindQuestion": "שאלה",
+    "eventDate": "מתי",
+    "eventLocation": "איפה",
+    "eventLocationPlaceholder": "חדר, כתובת או קישור",
+    "eventDateRequired": "לאירוע נדרש תאריך.",
+    "eventPast": "הסתיים",
+    "eventOn": "{date}",
+    "eventAtPlace": "{date} · {place}",
+    "answered": "נענתה",
+    "openQuestion": "פתוחה",
+    "acceptAnswer": "סמנו כתשובה",
+    "acceptedAnswer": "התשובה שהתקבלה",
+    "unacceptAnswer": "הסירו את הסימון",
+    "addTimeOptional": "הוסיפו שעה (לא חובה)"
   },
   "departmentArea": {
     "filesTab": "קבצים",

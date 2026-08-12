@@ -19,7 +19,8 @@
     "updated": "Updated",
     "deactivate": "Deactivate",
     "deleteTitle": "Delete this?",
-    "deactivateTitle": "Deactivate this?"
+    "deactivateTitle": "Deactivate this?",
+    "somethingWentWrong": "Something went wrong. Please try again."
   },
   "auth": {
     "login": {
@@ -215,7 +216,25 @@
     "colAuthor": "Shared by",
     "colDate": "Date",
     "colActivity": "Activity",
-    "activitySummary": "{comments} comments · {likes} likes"
+    "activitySummary": "{comments} comments · {likes} likes",
+    "kindLabel": "What is this?",
+    "kindPost": "Post",
+    "kindAnnouncement": "Announcement",
+    "kindEvent": "Event",
+    "kindQuestion": "Question",
+    "eventDate": "When",
+    "eventLocation": "Where",
+    "eventLocationPlaceholder": "Room, address, or a link",
+    "eventDateRequired": "An event needs a date.",
+    "eventPast": "Finished",
+    "eventOn": "{date}",
+    "eventAtPlace": "{date} · {place}",
+    "answered": "Answered",
+    "openQuestion": "Open",
+    "acceptAnswer": "Mark as the answer",
+    "acceptedAnswer": "Accepted answer",
+    "unacceptAnswer": "Remove the mark",
+    "addTimeOptional": "Add a time (optional)"
   },
   "departmentArea": {
     "filesTab": "Files",

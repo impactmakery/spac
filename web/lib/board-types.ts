@@ -1,3 +1,5 @@
+export type BoardKind = "post" | "announcement" | "event" | "question";
+
 export interface CategoryRef {
   id: string;
   name_he: string;
@@ -18,6 +20,16 @@ export interface BoardItemRow {
   description: string | null;
   category: CategoryRef;
   scope: "global" | "municipality";
+  /** What sort of thing this is, separate from what it carries. */
+  kind: BoardKind;
+  event_at: string | null;
+  /** False when only a day was given, so no invented hour is shown. */
+  event_has_time: boolean;
+  event_location: string | null;
+  /** On a question: the reply its author marked as the answer. */
+  accepted_comment_id: string | null;
+  /** Decided by the server, not inferred here: only the asker may mark it. */
+  can_accept_answer: boolean;
   author: AuthorRef;
   link_url: string | null;
   /** A shared prompt or agent brief, kept as copyable text. */

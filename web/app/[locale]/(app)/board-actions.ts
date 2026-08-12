@@ -53,6 +53,14 @@ export async function addComment(
   });
 }
 
+/** Mark the reply that answered a question, or clear the mark with null. */
+export async function acceptAnswer(itemId: string, commentId: string | null) {
+  return call<BoardItemRow>(`/api/board-items/${itemId}/accept`, {
+    method: "POST",
+    body: JSON.stringify({ comment_id: commentId }),
+  });
+}
+
 export async function deleteComment(itemId: string, commentId: string) {
   return call(`/api/board-items/${itemId}/comments/${commentId}`, { method: "DELETE" });
 }

@@ -3,6 +3,7 @@
 import { FileText, Heart, Link2, MessageCircle, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { deleteBoardItem } from "@/app/[locale]/(app)/board-actions";
+import { AnsweredBadge, EventLine, KindBadge } from "@/components/board/kind-badge";
 import { Card } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
@@ -46,7 +47,11 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
   return (
     <Card className="flex h-full flex-col p-5 transition-shadow hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
-        <CategoryChip category={item.category} />
+        <span className="flex flex-wrap items-center gap-1.5">
+          <CategoryChip category={item.category} />
+          <KindBadge kind={item.kind} />
+          <AnsweredBadge item={item} />
+        </span>
         {/* Editing and deleting from the board itself: reaching the item page
             first was an extra step for the person who wrote the post. */}
         <div className="flex shrink-0 gap-1">
@@ -81,6 +86,8 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
           </p>
         )}
       </Link>
+
+      <EventLine item={item} />
 
       {item.link_url && (
         <span className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary">

@@ -2,6 +2,7 @@
 
 import {
   ArrowRight,
+  CheckCircle2,
   Download,
   ExternalLink,
   Heart,
@@ -12,6 +13,7 @@ import {
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import {
+  acceptAnswer,
   addComment,
   deleteBoardItem,
   deleteComment,
@@ -102,6 +104,19 @@ export function ItemClient({
     setReplyBody("");
     setReplyTo(null);
     setBusy(false);
+    router.refresh();
+  }
+
+  // Whose question it is decides which reply answered it. The server works
+  // that out — a permission is not something the browser should derive.
+  const canAcceptAnswers = item.can_accept_answer;
+
+  async function onAccept(commentId: string | null) {
+    const res = await acceptAnswer(item.id, commentId);
+    if ("error" in res) {
+      toast(tc("somethingWentWrong"), "error");
+      return;
+    }
     router.refresh();
   }
 
@@ -249,6 +264,8 @@ export function ItemClient({
                       itemId={item.id}
                       onChanged={() => router.refresh()}
                       onDelete={onDeleteComment}
+                      accepted={item.accepted_comment_id === c.id}
+                      onAccept={canAcceptAnswers ? onAccept : undefined}
                       onReplyClick={() => {
                         setReplyTo(replyTo === c.id ? null : c.id);
                         setReplyBody("");
@@ -264,6 +281,8 @@ export function ItemClient({
                               itemId={item.id}
                               onChanged={() => router.refresh()}
                               onDelete={onDeleteComment}
+                              accepted={item.accepted_comment_id === r.id}
+                              onAccept={canAcceptAnswers ? onAccept : undefined}
                             />
                           </li>
                         ))}
@@ -384,6 +403,8 @@ function CommentCard({
   onDelete,
   onReplyClick,
   onChanged,
+  accepted = false,
+  onAccept,
 }: {
   comment: BoardComment;
   itemId: string;
@@ -391,13 +412,27 @@ function CommentCard({
   /** Only top-level comments offer a reply: threads are one level deep. */
   onReplyClick?: () => void;
   onChanged: () => void;
+  /** This is the reply the asker marked as the answer. */
+  accepted?: boolean;
+  /** Given only to the asker of a question, so only they can decide. */
+  onAccept?: (commentId: string | null) => void;
 }) {
   const t = useTranslations("board");
   const format = useFormatter();
   return (
-    <Card className="flex items-start gap-3 p-4">
+    <Card
+      className={`flex items-start gap-3 p-4 ${
+        accepted ? "border-emerald-500/60 bg-emerald-50/50 dark:bg-emerald-950/20" : ""
+      }`}
+    >
       <Avatar name={comment.author.name} seed={comment.author.id} />
       <div className="min-w-0 flex-1">
+        {accepted && (
+          <p className="mb-1 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="size-3.5" />
+            {t("acceptedAnswer")}
+          </p>
+        )}
         <p className="text-sm font-medium text-foreground">
           {comment.author.name ?? "—"}
           {comment.author.inactive && ` (${t("inactiveAuthor")})`}
@@ -425,6 +460,16 @@ function CommentCard({
               className="mt-1.5 text-xs font-medium text-primary hover:underline"
             >
               {t("reply")}
+            </button>
+          )}
+          {onAccept && (
+            <button
+              type="button"
+              onClick={() => onAccept(accepted ? null : comment.id)}
+              className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline dark:text-emerald-400"
+            >
+              <CheckCircle2 className="size-3.5" />
+              {accepted ? t("unacceptAnswer") : t("acceptAnswer")}
             </button>
           )}
         </div>

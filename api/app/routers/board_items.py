@@ -1,6 +1,6 @@
 import time
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
@@ -59,6 +59,15 @@ class BoardItemOut(BaseModel):
     description: str | None
     category: CategoryRef
     scope: str
+    kind: str
+    event_at: datetime | None
+    event_has_time: bool
+    event_location: str | None
+    accepted_comment_id: str | None
+    # Whether this reader may mark the answer. Computed here rather than
+    # inferred in the browser: the rule is a permission, and permissions are
+    # decided on the server or they are not decided at all.
+    can_accept_answer: bool
     author: AuthorRef
     link_url: str | None
     prompt_text: str | None
@@ -181,6 +190,14 @@ def _out(db: Session, item: BoardItem, user: User) -> BoardItemOut:
             id=str(cat.id), name_he=cat.name_he, name_en=cat.name_en, color=cat.color
         ),
         scope=item.scope,
+        kind=item.kind,
+        event_at=item.event_at,
+        event_has_time=item.event_has_time,
+        event_location=item.event_location,
+        accepted_comment_id=(
+            str(item.accepted_comment_id) if item.accepted_comment_id else None
+        ),
+        can_accept_answer=item.kind == "question" and item.author_id == user.id,
         author=_author_ref(db, item.author_id),
         link_url=item.link_url,
         prompt_text=item.prompt_text,
@@ -248,6 +265,7 @@ def list_items(
 def _validate_common(
     db: Session, *, title: str, description: str | None, category_id: str,
     link_url: str | None, has_file: bool, prompt_text: str | None = None,
+    kind: str = "post",
 ) -> Category:
     if not title or len(title) > MAX_TITLE:
         raise HTTPException(status_code=422, detail="invalid_title")
@@ -258,7 +276,12 @@ def _validate_common(
     # A post needs *something* to share. The original rule was file XOR link;
     # a shared prompt or agent brief is a third kind of content, and it may
     # legitimately travel with a link to where the agent lives.
-    if not (link_url or has_file or (prompt_text and prompt_text.strip())):
+    #
+    # The other kinds are exempt: the words are the point. An announcement is
+    # the announcement, a question is the question, and an event is a date and
+    # a place. Requiring an attachment would force people to invent one.
+    needs_content = kind == "post"
+    if needs_content and not (link_url or has_file or (prompt_text and prompt_text.strip())):
         raise HTTPException(status_code=422, detail="content_required")
     if link_url and not link_url.startswith("https://"):
         raise HTTPException(status_code=422, detail="link_must_be_https")
@@ -282,6 +305,17 @@ def _resolve_scope(
     return "municipality", user.municipality_id
 
 
+def _event_line(item: BoardItem) -> str | None:
+    """An event's when and where, as a sentence the assistant can quote."""
+    if item.kind != "event" or item.event_at is None:
+        return None
+    when = item.event_at.strftime("%Y-%m-%d %H:%M" if item.event_has_time else "%Y-%m-%d")
+    parts = [f"Event date: {when}"]
+    if item.event_location:
+        parts.append(f"Location: {item.event_location}")
+    return " · ".join(parts)
+
+
 def _enqueue_item(db: Session, item: BoardItem) -> None:
     ext = item.filename.rsplit(".", 1)[-1].lower() if item.filename else None
     item.indexing_status = "pending"
@@ -293,13 +327,45 @@ def _enqueue_item(db: Session, item: BoardItem) -> None:
         storage_key=item.storage_key,
         ext=ext,
         # The prompt is the substance of a shared-prompt post, so it is what
-        # makes the post findable — not just its description.
+        # makes the post findable — not just its description. An event's date
+        # and place go in for the same reason: "when is the training day?" is
+        # answerable only if the day is in the text, not merely in a column.
         text_content="\n\n".join(
-            part for part in (item.description, item.prompt_text) if part
+            part
+            for part in (item.description, item.prompt_text, _event_line(item))
+            if part
         ),
         title=item.title,
         municipality_id=item.municipality_id,
     )
+
+
+KINDS = ("post", "announcement", "event", "question")
+MAX_LOCATION = 200
+
+
+def _parse_event(kind: str, event_at: str | None) -> tuple[datetime | None, bool]:
+    """The date an event happens, and whether an hour was given for it.
+
+    A date alone is a normal way to announce something before the hour is
+    settled, so the two are stored separately rather than defaulting the time
+    to midnight and showing "00:00" to everyone.
+    """
+    if kind not in KINDS:
+        raise HTTPException(status_code=422, detail="invalid_kind")
+    if kind != "event":
+        return None, False
+    if not event_at:
+        raise HTTPException(status_code=422, detail="event_date_required")
+    text = event_at.strip()
+    has_time = "T" in text or " " in text
+    try:
+        when = datetime.fromisoformat(text)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="invalid_event_date") from None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=UTC)
+    return when, has_time
 
 
 @router.post("", status_code=201, response_model=BoardItemOut)
@@ -311,14 +377,19 @@ async def create_item(
     link_url: str | None = Form(default=None),
     prompt_text: str | None = Form(default=None),
     municipality_id: str | None = Form(default=None),
+    kind: str = Form(default="post"),
+    event_at: str | None = Form(default=None),
+    event_location: str | None = Form(default=None),
     file: UploadFile | None = File(default=None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BoardItemOut:
     content = await file.read() if file else None
+    when, has_time = _parse_event(kind, event_at)
     _validate_common(
         db, title=title, description=description, category_id=category_id,
         link_url=link_url, has_file=content is not None, prompt_text=prompt_text,
+        kind=kind,
     )
     scope, muni_id = _resolve_scope(user, destination, municipality_id)
 
@@ -331,6 +402,10 @@ async def create_item(
         author_id=user.id,
         link_url=link_url or None,
         prompt_text=(prompt_text or "").strip() or None,
+        kind=kind,
+        event_at=when,
+        event_has_time=has_time,
+        event_location=(event_location or "").strip()[:MAX_LOCATION] or None,
     )
     db.add(item)
     db.flush()
@@ -519,6 +594,45 @@ def toggle_like(
 class CommentIn(BaseModel):
     body: str = Field(min_length=1, max_length=MAX_COMMENT)
     parent_id: str | None = None
+
+
+class AcceptIn(BaseModel):
+    comment_id: str | None = None
+
+
+@router.post("/{item_id}/accept", response_model=BoardItemOut)
+def accept_answer(
+    item_id: uuid.UUID,
+    body: AcceptIn,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> BoardItemOut:
+    """Mark the reply that answered a question, or clear the mark.
+
+    Only the person who asked. A moderator deciding which answer is right on
+    somebody else's question is a different feature with different politics,
+    and nobody has asked for it.
+    """
+    item = _get_item_or_404(db, item_id, user)
+    if item.kind != "question":
+        raise HTTPException(status_code=422, detail="not_a_question")
+    if item.author_id != user.id:
+        # 404, in line with everything else here: not "you may not", just no.
+        raise HTTPException(status_code=404, detail="not_found")
+
+    if body.comment_id is None:
+        item.accepted_comment_id = None
+        db.commit()
+        return _out(db, item, user)
+
+    comment = db.get(BoardComment, uuid.UUID(body.comment_id))
+    # A comment on a different post would silently point the answer somewhere
+    # nobody reading this question can see.
+    if comment is None or comment.item_id != item.id:
+        raise HTTPException(status_code=404, detail="not_found")
+    item.accepted_comment_id = comment.id
+    db.commit()
+    return _out(db, item, user)
 
 
 @router.post("/{item_id}/comments", status_code=201, response_model=CommentOut)
