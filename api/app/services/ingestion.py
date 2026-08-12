@@ -7,6 +7,7 @@ happens in the routers; this module only rebuilds chunks for live sources.
 
 import logging
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select, text
@@ -188,8 +189,18 @@ def reclaim_stalled_jobs(db: Session) -> int:
     return len(stalled)
 
 
-def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
-    """Claim and run due jobs. Returns the number processed."""
+def run_pending_jobs(
+    db: Session,
+    *,
+    limit: int = 10,
+    should_stop: Callable[[], bool] | None = None,
+) -> int:
+    """Claim and run due jobs. Returns the number processed.
+
+    should_stop lets a worker being shut down hand back the jobs it has not
+    started yet. Without it a deploy — an ordinary, frequent event — would
+    leave a whole batch to sit out the lease before anything retried it.
+    """
     reclaim_stalled_jobs(db)
     claimed = db.scalars(
         select(IngestionJob)
@@ -208,7 +219,18 @@ def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
         _set_source_status(db, job.source_type, job.source_id, "processing", None)
     db.commit()
 
-    for job in claimed:
+    for position, job in enumerate(claimed):
+        if should_stop is not None and should_stop():
+            # Give back what has not been started. These were never attempted,
+            # so they go back untouched rather than spending a retry.
+            for pending in claimed[position:]:
+                pending.status = "queued"
+                _set_source_status(db, pending.source_type, pending.source_id,
+                                   "pending", None)
+            db.commit()
+            log.info("shutting down: returned %d unstarted job(s)", len(claimed) - position)
+            return position
+
         # Read the identifiers up front: deleting a document removes its job
         # rows, and after a rollback even reading job.id would try to reload a
         # row that is gone (ObjectDeletedError) and kill the worker cycle.

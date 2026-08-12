@@ -175,3 +175,51 @@ def test_a_page_that_will_not_report_its_size_still_renders():
             raise RuntimeError("no size")
 
     assert _render_scale(Broken()) == pytest.approx(OCR_DPI / 72)
+
+
+# --- graceful shutdown -----------------------------------------------------
+#
+# A deploy is an ordinary event, and Railway sends SIGTERM before replacing the
+# container. Dying on the spot left a whole claimed batch to sit out the lease:
+# that, not a crash, is what stranded 21 documents here for nine hours.
+
+
+def test_shutdown_hands_back_the_jobs_it_has_not_started(db, doc):
+    from app.models import IngestionJob
+    from app.services.ingestion import enqueue, run_pending_jobs
+
+    for _ in range(3):
+        enqueue(db, source_type="kb", source_id=doc.id, visibility="global",
+                storage_key="missing", ext="pdf", title=doc.title)
+    db.commit()
+
+    # asked to stop before any job is started
+    processed = run_pending_jobs(db, limit=3, should_stop=lambda: True)
+
+    assert processed == 0
+    db.expire_all()
+    statuses = {j.status for j in db.query(IngestionJob).all()}
+    assert statuses == {"queued"}
+    # handed back, not retried: they were never attempted
+    assert all(j.attempts == 0 for j in db.query(IngestionJob).all())
+
+
+def test_shutdown_leaves_nothing_claimed(db, doc):
+    """Whatever state a stopping worker leaves, it must not be 'running'."""
+    from app.models import IngestionJob
+    from app.services.ingestion import enqueue, run_pending_jobs
+
+    for _ in range(2):
+        enqueue(db, source_type="kb", source_id=doc.id, visibility="global",
+                storage_key="missing", ext="pdf", title=doc.title)
+    db.commit()
+
+    calls = {"n": 0}
+
+    def stop_after_first() -> bool:
+        calls["n"] += 1
+        return calls["n"] > 1
+
+    run_pending_jobs(db, limit=2, should_stop=stop_after_first)
+    db.expire_all()
+    assert not [j for j in db.query(IngestionJob).all() if j.status == "running"]
