@@ -12,7 +12,7 @@ from app.models import (
     DepartmentPost,
     KbDocument,
 )
-from app.rag.retrieval import RetrievedChunk
+from app.rag.retrieval import RetrievedChunk, source_numbers
 
 
 class Citation(TypedDict):
@@ -24,19 +24,27 @@ class Citation(TypedDict):
 
 
 def build_citations(db: Session, chunks: list[RetrievedChunk]) -> list[Citation]:
-    """One citation per distinct source, numbered in the order the model sees them."""
+    """One citation per distinct source, numbered exactly as the model sees them.
+
+    The numbers come from source_numbers, the same function that labels the
+    passages in the prompt — they have to agree, or every marker in every
+    answer points somewhere other than where it says.
+    """
     citations: list[Citation] = []
-    seen: dict[uuid.UUID, int] = {}
-    for i, chunk in enumerate(chunks):
+    seen: set[uuid.UUID] = set()
+    for chunk, number in zip(chunks, source_numbers(chunks), strict=True):
         if chunk.source_id in seen:
             continue
+        seen.add(chunk.source_id)
         title, href = _resolve(db, chunk)
         if title is None:
-            continue  # source vanished (deleted between retrieval and render)
-        seen[chunk.source_id] = i
+            # Source vanished between retrieval and render. Leave its number
+            # unused rather than closing the gap: renumbering would move every
+            # later citation out from under the markers already written.
+            continue
         citations.append(
             Citation(
-                index=len(citations) + 1,
+                index=number,
                 title=title,
                 source_type=chunk.source_type,
                 source_id=str(chunk.source_id),

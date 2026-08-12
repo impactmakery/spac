@@ -146,6 +146,21 @@ class RetrievedChunk:
     from_graph: bool = False
 
 
+def source_numbers(chunks: list[RetrievedChunk]) -> list[int]:
+    """The citation number to label each chunk with, in chunk order.
+
+    Passages from the same document share one number, because a citation points
+    at a document rather than at a passage. Numbering passages instead would
+    hand the model [1]..[12] while the citation list beneath the answer ran
+    [1]..[5] — so a marker would land on the wrong document, or on nothing.
+    """
+    seen: dict[uuid.UUID, int] = {}
+    for chunk in chunks:
+        if chunk.source_id not in seen:
+            seen[chunk.source_id] = len(seen) + 1
+    return [seen[chunk.source_id] for chunk in chunks]
+
+
 def retrieve(
     db: Session,
     *,

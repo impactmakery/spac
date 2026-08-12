@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from typing import Protocol
 
 from app.core.config import get_settings
-from app.rag.retrieval import RetrievedChunk
+from app.rag.retrieval import RetrievedChunk, source_numbers
 
 log = logging.getLogger(__name__)
 
@@ -51,12 +51,21 @@ def not_covered_reply(question: str) -> str:
     return NOT_COVERED[detect_language(question)]
 
 
+def _numbered_sources(chunks: list[RetrievedChunk]) -> str:
+    """Passages labelled with their document's citation number.
+
+    Two passages from one document carry the same number, which is what the
+    citation list underneath the answer will show.
+    """
+    return "\n\n".join(
+        f"[{n}] {c.content}" for n, c in zip(source_numbers(chunks), chunks, strict=True)
+    )
+
+
 def build_prompt(
     question: str, chunks: list[RetrievedChunk], history: list[tuple[str, str]]
 ) -> str:
-    sources = "\n\n".join(
-        f"[{i + 1}] {c.content}" for i, c in enumerate(chunks)
-    )
+    sources = _numbered_sources(chunks)
     convo = "\n".join(f"{role}: {content}" for role, content in history)
     return (
         f"{SYSTEM_PROMPT}\n\nSOURCES:\n{sources}\n\n"
@@ -97,7 +106,7 @@ class ApiGeneration:
             default_headers=headers or None,
         )
 
-        sources = "\n\n".join(f"[{i + 1}] {c.content}" for i, c in enumerate(chunks))
+        sources = _numbered_sources(chunks)
         messages: list[ChatCompletionMessageParam] = [
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "system", "content": f"SOURCES:\n{sources}"},
@@ -149,9 +158,11 @@ class FakeGeneration:
     ) -> Iterator[str]:
         lang = detect_language(question)
         yield self.LEAD[lang]
-        for i, chunk in enumerate(chunks[:3]):
+        # same numbering as the real provider, or the offline fallback would
+        # produce markers that do not match the citations shown beneath it
+        for number, chunk in list(zip(source_numbers(chunks), chunks, strict=True))[:3]:
             excerpt = " ".join(chunk.content.split())[:280]
-            yield f"\n\n{excerpt} [{i + 1}]"
+            yield f"\n\n{excerpt} [{number}]"
 
 
 def get_generation_provider() -> GenerationProvider:
