@@ -16,6 +16,16 @@ log = logging.getLogger(__name__)
 MIN_CHARS_PER_PAGE = 40
 OCR_MAX_PAGES = 40  # a 300-page scan would hold the worker for many minutes
 OCR_DPI = 200  # below ~150 Hebrew diacritics and small print start to fail
+
+# Ceiling on the bitmap a single page may be rendered to, in pixels.
+#
+# DPI alone bounds nothing: it is a multiplier on the page's own size, so an A4
+# page at 200 dpi is a manageable 11 MB while an A0 plan is 182 MB — and
+# Tesseract then takes its own copy. Municipal archives are full of scanned
+# plans and posters, and the worker has a gigabyte. Eight megapixels is far
+# more than Tesseract needs for readable text; anything larger is scaled down
+# to fit rather than rendered at full size and hoped for.
+OCR_MAX_PIXELS = 8_000_000
 OCR_LANGUAGES = "heb+eng"
 
 
@@ -113,6 +123,20 @@ def ocr_available() -> bool:
     return True
 
 
+def _render_scale(page: object) -> float:
+    """Render scale for a page: OCR_DPI, or less if that would be enormous."""
+    scale = OCR_DPI / 72
+    try:
+        width, height = page.get_size()  # type: ignore[attr-defined]
+    except Exception:  # noqa: BLE001 — an unreadable size just uses the default
+        return scale
+    pixels = (width * scale) * (height * scale)
+    if pixels > OCR_MAX_PIXELS:
+        scale *= (OCR_MAX_PIXELS / pixels) ** 0.5
+        log.info("OCR scaled a large page down to fit %d pixels", OCR_MAX_PIXELS)
+    return scale
+
+
 def _ocr_pdf(content: bytes) -> str:
     """Rasterise each page and read it with Tesseract.
 
@@ -141,12 +165,22 @@ def _ocr_pdf(content: bytes) -> str:
                 "OCR limited to the first %d of %d pages", OCR_MAX_PAGES, len(pdf)
             )
         for index in range(count):
+            page = None
+            image = None
             try:
                 page = pdf[index]
-                image = page.render(scale=OCR_DPI / 72).to_pil()
+                image = page.render(scale=_render_scale(page)).to_pil()
                 out.append(pytesseract.image_to_string(image, lang=OCR_LANGUAGES))
             except Exception as e:  # noqa: BLE001 — one bad page is not a failure
                 log.warning("OCR failed on page %d: %s", index + 1, e)
+            finally:
+                # Release each page's bitmap before rendering the next one.
+                # Without this the native buffers accumulate for the whole
+                # document and a long scan takes the worker out of memory.
+                if image is not None:
+                    image.close()
+                if page is not None:
+                    page.close()
     finally:
         pdf.close()
 

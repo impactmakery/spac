@@ -25,6 +25,19 @@ log = logging.getLogger(__name__)
 MAX_ATTEMPTS = 3
 BACKOFF_BASE_SECONDS = 30
 
+# How long a claimed job may sit in 'running' before it is assumed abandoned.
+#
+# A worker that is killed mid-batch — out of memory on a large scan, a deploy,
+# a container restart — leaves its claims behind, and the claim query only ever
+# looks at 'queued'. Without this those jobs are stranded permanently: the
+# document shows "processing" forever and nothing retries it.
+#
+# Generous on purpose. A batch is marked 'running' when it is claimed, so the
+# last job in a batch of ten has already been sitting in that state while the
+# other nine were OCR'd. The lease has to outlast a whole slow batch or a
+# healthy worker would have its own work taken away mid-run.
+LEASE_SECONDS = 2 * 60 * 60
+
 
 def enqueue(
     db: Session,
@@ -143,8 +156,41 @@ def _process(db: Session, job: IngestionJob) -> None:
             log.warning("graph indexing failed for chunk %s: %s", chunk.id, e)
 
 
+def reclaim_stalled_jobs(db: Session) -> int:
+    """Return jobs abandoned by a dead worker to the queue. Returns how many.
+
+    Counts an attempt rather than requeueing freely: a document that reliably
+    kills the worker would otherwise cycle forever, taking the queue down with
+    it every time. After MAX_ATTEMPTS it becomes a visible failure instead.
+    """
+    cutoff = datetime.now(UTC) - timedelta(seconds=LEASE_SECONDS)
+    stalled = db.scalars(
+        select(IngestionJob)
+        .where(IngestionJob.status == "running", IngestionJob.updated_at < cutoff)
+        .with_for_update(skip_locked=True)
+    ).all()
+    for job in stalled:
+        job.attempts += 1
+        job.last_error = "worker stopped while this job was running"
+        if job.attempts >= MAX_ATTEMPTS:
+            job.status = "failed"
+            _set_source_status(
+                db, job.source_type, job.source_id, "not_indexable", job.last_error
+            )
+            log.error("ingestion job %s abandoned too often; giving up", job.id)
+        else:
+            job.status = "queued"
+            job.run_after = datetime.now(UTC)
+            _set_source_status(db, job.source_type, job.source_id, "pending", None)
+            log.warning("requeued stalled ingestion job %s", job.id)
+    if stalled:
+        db.commit()
+    return len(stalled)
+
+
 def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
     """Claim and run due jobs. Returns the number processed."""
+    reclaim_stalled_jobs(db)
     claimed = db.scalars(
         select(IngestionJob)
         .where(
@@ -167,6 +213,10 @@ def run_pending_jobs(db: Session, *, limit: int = 10) -> int:
         # rows, and after a rollback even reading job.id would try to reload a
         # row that is gone (ObjectDeletedError) and kill the worker cycle.
         job_id, source_type, source_id = job.id, job.source_type, job.source_id
+        # Restart this job's lease as its turn begins, so the clock measures how
+        # long this job has been worked on rather than how long the batch has.
+        job.updated_at = datetime.now(UTC)
+        db.commit()
         try:
             _process(db, job)
             job.status = "done"
