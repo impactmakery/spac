@@ -27,6 +27,7 @@ import argparse
 import csv
 import sys
 import time
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -109,9 +110,29 @@ def title_for(path: Path, folder: Path) -> str:
     from; one reading "מצגת 3" does not.
     """
     rel = path.relative_to(folder)
-    stem = rel.stem
     parents = [p for p in rel.parent.parts if p not in (".", "")]
-    return f"{stem} — {' / '.join(parents)}" if parents else stem
+    return f"{rel.stem} — {' / '.join(parents)}" if parents else rel.stem
+
+
+def titles_for(paths: list[Path], folder: Path) -> dict[Path, str]:
+    """Titles for a whole folder at once, with collisions made distinct.
+
+    Dropping the extension means a report saved as both .docx and .pdf lands on
+    one title twice, and the library shows what looks like a duplicate of
+    something that is not one — two different files, both real, indistinguishable
+    in a list and in a citation. Where that happens the format is named; where it
+    does not, the title stays clean.
+    """
+    titles: dict[Path, str] = {p: title_for(p, folder) for p in paths}
+    counts = Counter(titles.values())
+    return {
+        path: (
+            f"{title} ({path.suffix.lstrip('.').upper()})"
+            if counts[title] > 1 and path.suffix
+            else title
+        )
+        for path, title in titles.items()
+    }
 
 
 class Api:
@@ -236,8 +257,9 @@ def main() -> None:
         print(f"\n{plan.municipality}: {len(plan.files)} files")
         muni_id = api.municipality_id(plan.municipality)
         already = api.existing_titles(muni_id)
+        titles = titles_for(plan.files, plan.folder)
         for path in plan.files:
-            title = title_for(path, plan.folder)
+            title = titles[path]
             if title in already:
                 skipped_existing += 1
                 continue
