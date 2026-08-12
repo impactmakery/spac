@@ -32,7 +32,7 @@ from app.rag.retrieval import RETRIEVAL_SQL, retrieve
 from app.rag.rewrite import standalone_question
 from app.rag.smalltalk import classify as classify_smalltalk
 from app.rag.smalltalk import reply as smalltalk_reply
-from app.services.citations import build_citations
+from app.services.citations import build_citations, cited_in
 from app.services.kb_access import readable_kb_documents
 
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -278,7 +278,10 @@ def send_message(
             answer = not_covered_reply(question)
             yield _sse("token", answer)
 
-        yield _sse("citations", citations)
+        # Only what the answer leaned on. Sent after the text precisely so this
+        # is possible: the full answer is known by the time the list goes out.
+        shown = cited_in(answer, citations)
+        yield _sse("citations", shown)
 
         # persist on a fresh session: the request session closes with the response
         engine_session = sessionmaker(
@@ -289,7 +292,7 @@ def send_message(
                 conversation_id=conversation_id_val,
                 role="assistant",
                 content=answer,
-                citations=citations or None,
+                citations=shown or None,
             )
             write_db.add(assistant)
             write_db.flush()

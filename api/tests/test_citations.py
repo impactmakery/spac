@@ -99,3 +99,72 @@ def test_a_vanished_source_leaves_a_gap_rather_than_shifting(db, docs):
     citations = build_citations(db, [chunk(gone), chunk(doc.id)])
     assert [c["index"] for c in citations] == [2]
     assert citations[0]["title"] == "Still here"
+
+
+# --- what the answer actually leaned on -------------------------------------
+#
+# Retrieval reads more than an answer needs: a question about one document
+# routinely pulls passages from three or four that share vocabulary. Listing
+# all of them says the answer rests on four documents when it rests on one, and
+# someone checking the third finds no sentence it supports.
+#
+# Observed in production: a question about one budget document answered with
+# [1] on every line, over a Sources list of four — two of them unrelated
+# tender files that merely shared words.
+
+
+def _citation(index: int, title: str) -> dict:
+    return {
+        "index": index,
+        "title": title,
+        "source_type": "kb",
+        "source_id": str(uuid.uuid4()),
+        "href": f"/knowledge/{index}",
+    }
+
+
+@pytest.fixture()
+def four():
+    return [_citation(i, f"Document {i}") for i in (1, 2, 3, 4)]
+
+
+def test_only_the_sources_the_answer_used_are_listed(four):
+    from app.services.citations import cited_in
+
+    answer = "The budget rose in 2026 [1]. Staffing was unchanged [1]."
+    assert [c["index"] for c in cited_in(answer, four)] == [1]
+
+
+def test_sources_are_listed_in_the_order_they_were_relied_on(four):
+    from app.services.citations import cited_in
+
+    answer = "First this [3]. Then that [1]. And also [3] again."
+    assert [c["index"] for c in cited_in(answer, four)] == [3, 1]
+
+
+def test_an_answer_citing_nothing_keeps_the_whole_list(four):
+    """The model ignoring the instruction should not strip the evidence."""
+    from app.services.citations import cited_in
+
+    assert cited_in("A reply with no markers at all.", four) == four
+
+
+def test_a_marker_with_no_matching_source_is_dropped(four):
+    """Better a shorter list than a row that leads nowhere."""
+    from app.services.citations import cited_in
+
+    answer = "Something [2] and something else [9]."
+    assert [c["index"] for c in cited_in(answer, four)] == [2]
+
+
+def test_every_source_used_still_lists_every_source(four):
+    from app.services.citations import cited_in
+
+    answer = "[1] a [2] b [3] c [4] d"
+    assert cited_in(answer, four) == four
+
+
+def test_nothing_retrieved_stays_nothing():
+    from app.services.citations import cited_in
+
+    assert cited_in("no sources were available [1]", []) == []

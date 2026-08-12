@@ -1,5 +1,6 @@
 """Turn retrieved chunks into user-facing citations that link to reachable sources."""
 
+import re
 import uuid
 from typing import TypedDict
 
@@ -78,3 +79,30 @@ def _resolve(db: Session, chunk: RetrievedChunk) -> tuple[str | None, str]:
             excerpt = " ".join(post.body.split())[:60]
             return excerpt, f"/departments/{post.department_id}"
     return None, ""
+
+
+# [1] or [12]; the prompt asks for one marker each, never [1, 2].
+_MARKER = re.compile(r"\[(\d{1,2})\]")
+
+
+def cited_in(answer: str, citations: list[Citation]) -> list[Citation]:
+    """The sources the answer actually used, in the order it used them.
+
+    Retrieval reads more than the answer needs: a question about one document
+    routinely pulls passages from three or four that share vocabulary. Listing
+    all of them says the answer rests on four documents when it rests on one,
+    and someone checking the third finds no sentence it supports — in a product
+    whose promise is that every claim can be verified.
+
+    An answer citing nothing keeps the full list. That happens when the model
+    ignores the instruction, and showing what was read beats showing nothing at
+    all.
+    """
+    used = [int(m) for m in _MARKER.findall(answer)]
+    if not used:
+        return citations
+    # dict keys keep insertion order and drop repeats: a source cited three
+    # times is listed once, where it was first relied on.
+    first_use = dict.fromkeys(used)
+    by_index = {c["index"]: c for c in citations}
+    return [by_index[n] for n in first_use if n in by_index]
