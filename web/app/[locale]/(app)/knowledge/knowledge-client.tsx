@@ -38,19 +38,6 @@ export function KnowledgeClient({
   const [upload, setUpload] = useState<UploadState | null>(null);
   const busy = upload !== null;
 
-  // Indexing happens in a worker, so a document that has just been uploaded sits
-  // at Pending and this page — rendered on the server — would keep saying so
-  // until someone reloaded it. Refresh while anything is still being worked on,
-  // and stop as soon as nothing is: no timer runs on a settled library.
-  const working = docs.filter(
-    (d) => d.status === "pending" || d.status === "processing",
-  ).length;
-  useEffect(() => {
-    if (working === 0) return;
-    const timer = setInterval(() => router.refresh(), REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [working, router]);
-
   const tabs = useMemo(
     () => libraryTabs(role, municipalities, ownMunicipality),
     [role, municipalities, ownMunicipality],
@@ -60,6 +47,32 @@ export function KnowledgeClient({
 
   // Only a system admin curates the shared library; everyone else reads it.
   const canUpload = active.kind === "global" ? isSystemAdmin : true;
+
+  // Indexing happens in a worker, so a document that has just been uploaded sits
+  // at Pending and this page — rendered on the server — would keep saying so
+  // until someone reloaded it. Refresh while anything is still being worked on,
+  // and stop as soon as nothing is: no timer runs on a settled library.
+  //
+  // Counted twice on purpose. What the notice reports has to be what is on
+  // screen — saying "18 documents are still being read" while looking at a
+  // library where none of them are is worse than saying nothing. But the
+  // refresh has to follow every library the reader can see, or switching tabs
+  // would land on statuses that stopped updating while they were away.
+  const isWorking = (d: KbDocRow) => d.status === "pending" || d.status === "processing";
+  const workingAnywhere = docs.filter(isWorking).length;
+  const workingHere = docs.filter(
+    (d) =>
+      isWorking(d) &&
+      (active.kind === "global"
+        ? d.scope === "global"
+        : d.scope === "municipality" && d.municipality_id === active.id),
+  ).length;
+  useEffect(() => {
+    if (workingAnywhere === 0) return;
+    const timer = setInterval(() => router.refresh(), REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [workingAnywhere, router]);
+
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
@@ -149,9 +162,9 @@ export function KnowledgeClient({
 
       {upload && <UploadProgress state={upload} />}
 
-      {working > 0 && !upload && (
+      {workingHere > 0 && !upload && (
         <p className="mb-4 text-sm text-muted-foreground" role="status" aria-live="polite">
-          {t("indexingInProgress", { count: working })}
+          {t("indexingInProgress", { count: workingHere })}
         </p>
       )}
 
