@@ -49,7 +49,16 @@ export function ItemList({ items }: { items: BoardItemRow[] }) {
               {item.title}
             </span>
             <span className="block truncate text-xs text-muted-foreground">
-              <Bidi>{item.author.name ?? "—"}</Bidi> ·{" "}
+              <Bidi>{item.author.name ?? "—"}</Bidi>
+              {/* Which municipality, as the card has always shown: on a board
+                  that mixes them, the author's name alone does not say. */}
+              {item.author.municipality_name && (
+                <>
+                  {" · "}
+                  <Bidi>{item.author.municipality_name}</Bidi>
+                </>
+              )}{" "}
+              ·{" "}
               <Bidi>
                 {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
               </Bidi>

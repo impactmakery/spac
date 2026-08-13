@@ -812,10 +812,35 @@ def test_a_system_admin_can_read_one_municipality_board(client, world):
     assert other["items"] == []
 
 
-def test_a_system_admin_must_say_which_municipality(client, world):
-    """They have none of their own, so there is no sensible default."""
+def test_naming_no_municipality_gives_a_system_admin_all_of_them(client, world):
+    """"Is anyone asking about this?" is a question about every board at once,
+    not about one at a time."""
+    sys_headers = auth(client, "sys@x.org")
+    publish_link(client, auth(client, "u1@x.org"), world,
+                 title="City One only", destination="municipality")
+    publish_link(client, auth(client, "u2@x.org"), world,
+                 title="City Two only", destination="municipality")
+
+    page = client.get("/api/board-items?scope=municipality", headers=sys_headers).json()
+    assert sorted(i["title"] for i in page["items"]) == ["City One only", "City Two only"]
+    # and still only the municipality boards — the shared one is its own page
+    publish_link(client, auth(client, "u1@x.org"), world, title="Everyone")
+    page = client.get("/api/board-items?scope=municipality", headers=sys_headers).json()
+    assert "Everyone" not in [i["title"] for i in page["items"]]
+
+
+def test_somebody_with_no_municipality_still_has_no_board(client, db, world):
+    """The all-boards view is the system admin's, not a consolation prize for
+    an account that was never given a municipality."""
+    from app.core.security import hash_password
+    from app.models import User
+
+    db.add(User(email="nowhere@x.org", role="department_user", status="active",
+                password_hash=hash_password("board-password-1"), name="Nowhere"))
+    db.commit()
+
     r = client.get("/api/board-items?scope=municipality",
-                   headers=auth(client, "sys@x.org"))
+                   headers=auth(client, "nowhere@x.org"))
     assert r.status_code == 404
 
 

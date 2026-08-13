@@ -29,21 +29,14 @@ export default async function MunicipalityBoardPage({
     ? await apiFetch<MunicipalityRow[]>("/api/municipalities")
     : [];
   const active = all.filter((m) => m.status !== "inactive");
-  // Landing on a picker with nothing picked shows an empty board and reads as
-  // "there is nothing here", so the first municipality stands in until one is
-  // chosen.
+  // Empty means every board at once, which is what a system admin lands on:
+  // one municipality picked arbitrarily would be an odd thing to default to.
   const municipalityId = isSystemAdmin
-    ? (active.find((m) => m.id === chosen)?.id ?? active[0]?.id ?? "")
+    ? (active.find((m) => m.id === chosen)?.id ?? "")
     : session.user.municipalityId!;
 
-  if (isSystemAdmin && !municipalityId) notFound();
-
-  const query = new URLSearchParams({
-    scope: "municipality",
-    sort,
-    page,
-    municipality_id: municipalityId,
-  });
+  const query = new URLSearchParams({ scope: "municipality", sort, page });
+  if (municipalityId) query.set("municipality_id", municipalityId);
   if (search) query.set("search", search);
   if (category) query.set("category_id", category);
 
@@ -60,7 +53,11 @@ export default async function MunicipalityBoardPage({
   return (
     <BoardPage
       scope="municipality"
-      title={t("municipalityTitle", { name: municipalityName })}
+      title={
+        isSystemAdmin && !municipalityId
+          ? t("allMunicipalitiesTitle")
+          : t("municipalityTitle", { name: municipalityName })
+      }
       subtitle={isSystemAdmin ? t("municipalityReadOnly") : t("municipalitySubtitle")}
       items={data.items}
       hasMore={data.has_more}

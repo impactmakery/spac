@@ -124,6 +124,9 @@ export function BoardPage({
             value={municipalityId ?? ""}
             onChange={(e) => navigate({ municipality: e.target.value, page: "" })}
           >
+            {/* Every board at once — "is anyone asking about this?" is a
+                question about all of them, not one at a time. */}
+            <option value="">{t("allMunicipalities")}</option>
             {municipalities.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}

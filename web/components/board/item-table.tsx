@@ -137,6 +137,13 @@ export function ItemTable({ items }: { items: BoardItemRow[] }) {
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                 <Bidi>{item.author.name ?? "—"}</Bidi>
+                {/* Which municipality, as the card has always shown: on a board
+                    that mixes them, the author's name alone does not say. */}
+                {item.author.municipality_name && (
+                  <span className="block text-xs">
+                    <Bidi>{item.author.municipality_name}</Bidi>
+                  </span>
+                )}
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                 <Bidi>

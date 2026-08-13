@@ -174,18 +174,19 @@ def _visible_or_404(item: BoardItem, user: User) -> None:
             raise HTTPException(status_code=404, detail="not_found")
 
 
-def _board_municipality(user: User, requested: str | None) -> uuid.UUID:
-    """Whose municipality board is being read.
+def _board_municipality(user: User, requested: str | None) -> uuid.UUID | None:
+    """Whose municipality board is being read. None means all of them.
 
     A system admin may name one, because they already answer for every
-    municipality and can already open any single post on one. Everyone else
-    gets their own, and naming somebody else's is not a different answer — it
-    is the same 404 as a municipality that does not exist, so no one learns
-    which ids are real.
+    municipality and can already open any single post on one; naming none
+    means every municipality board at once, which is what "is anyone asking
+    about this?" looks like as a question. Everyone else gets their own, and
+    naming somebody else's is not a different answer — it is the same 404 as a
+    municipality that does not exist, so no one learns which ids are real.
     """
     if user.role == "system_admin":
         if requested is None:
-            raise HTTPException(status_code=404, detail="not_found")
+            return None
         try:
             return uuid.UUID(requested)
         except ValueError:
@@ -268,10 +269,9 @@ def list_items(
     q = select(BoardItem)
     if scope == "municipality":
         target = _board_municipality(user, municipality_id)
-        q = q.where(
-            BoardItem.scope == "municipality",
-            BoardItem.municipality_id == target,
-        )
+        q = q.where(BoardItem.scope == "municipality")
+        if target is not None:
+            q = q.where(BoardItem.municipality_id == target)
     else:
         q = q.where(BoardItem.scope == "global")
     if category_id:
