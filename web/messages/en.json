@@ -127,7 +127,14 @@
     "activityMix": "What the activity is made of",
     "activityMixHelp": "Questions, items and files per row, over the last {days} days.",
     "activeUsersHint": "signed in, asked, posted or commented",
-    "chatMessagesHint": "one per question, not per reply"
+    "chatMessagesHint": "one per question, not per reply",
+    "metric": "Metric",
+    "value": "Value",
+    "date": "Date",
+    "question": "Question",
+    "unanswered": "Unanswered",
+    "summaryTitle": "Summary — last {days} days",
+    "overTimeTitle": "Over time"
   },
   "chat": {
     "title": "Tomorrow Agent",

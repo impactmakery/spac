@@ -127,7 +127,14 @@
     "activityMix": "ממה מורכבת הפעילות",
     "activityMixHelp": "שאלות, פריטים וקבצים בכל שורה, ב-{days} הימים האחרונים.",
     "activeUsersHint": "נכנסו, שאלו, פרסמו או הגיבו",
-    "chatMessagesHint": "שאלה אחת, לא תשובה"
+    "chatMessagesHint": "שאלה אחת, לא תשובה",
+    "metric": "מדד",
+    "value": "ערך",
+    "date": "תאריך",
+    "question": "שאלה",
+    "unanswered": "ללא מענה",
+    "summaryTitle": "סיכום — {days} הימים האחרונים",
+    "overTimeTitle": "לאורך זמן"
   },
   "chat": {
     "title": "סוכן מחר",

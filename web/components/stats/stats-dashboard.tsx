@@ -11,8 +11,9 @@ import { PageHeader } from "@/components/page-header";
 import { Button, Card, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import {
-  toCsv,
+  toSectionedCsv,
   type BreakdownRow,
+  type CsvSection,
   type PlatformStatsData,
   type StatsData,
 } from "@/lib/stats-types";
@@ -56,32 +57,84 @@ export function StatsDashboard({
   const hasData =
     data.kpis.active_users + data.kpis.chat_messages + data.kpis.board_items > 0;
 
+  /**
+   * The whole page, not just the table at the bottom of it.
+   *
+   * It exported the per-municipality breakdown alone, so the totals, both
+   * lines over time and the unanswered questions — three quarters of what a
+   * reader had just been looking at — could not leave the screen.
+   */
   function exportCsv() {
-    const headers = [
-      scope === "platform" ? t("municipality") : t("department"),
-      t("activeUsers"),
-      t("chatSessions"),
-      t("chatMessages"),
-      t("unansweredPct"),
-      t("boardItems"),
-      t("comments"),
-      t("likes"),
-      t("filesUploaded"),
-    ];
-    const row = (r: BreakdownRow) => [
-      r.name,
-      r.kpis.active_users,
-      r.kpis.chat_sessions,
-      r.kpis.chat_messages,
-      r.kpis.unanswered_pct,
-      r.kpis.board_items,
-      r.kpis.comments,
-      r.kpis.likes,
-      r.kpis.files_uploaded,
-    ];
-    const csv = toCsv(headers, data.breakdown.map(row));
+    const grouping = scope === "platform" ? t("municipality") : t("department");
+
+    const summary: CsvSection = {
+      title: t("summaryTitle", { days: data.range_days }),
+      headers: [t("metric"), t("value")],
+      rows: [
+        [t("activeUsers"), data.kpis.active_users],
+        [t("chatSessions"), data.kpis.chat_sessions],
+        [t("chatMessages"), data.kpis.chat_messages],
+        [t("unanswered"), data.kpis.unanswered],
+        [t("unansweredPct"), data.kpis.unanswered_pct],
+        [t("boardItems"), data.kpis.board_items],
+        [t("comments"), data.kpis.comments],
+        [t("likes"), data.kpis.likes],
+        [t("filesUploaded"), data.kpis.files_uploaded],
+      ],
+    };
+
+    // Both line charts plot this, one column each.
+    const overTime: CsvSection = {
+      title: t("overTimeTitle"),
+      headers: [t("date"), t("activeUsers"), t("chatMessages")],
+      rows: data.series.map((p) => [p.day, p.active_users, p.chat_messages]),
+    };
+
+    // The comparison bars, the composition bars and the table all read from
+    // this, so every measure goes in rather than only the one on screen.
+    const breakdown: CsvSection = {
+      title: scope === "platform" ? t("byMunicipality") : t("byDepartment"),
+      headers: [
+        grouping,
+        t("activeUsers"),
+        t("chatSessions"),
+        t("chatMessages"),
+        t("unanswered"),
+        t("unansweredPct"),
+        t("boardItems"),
+        t("comments"),
+        t("likes"),
+        t("filesUploaded"),
+      ],
+      rows: data.breakdown.map((r: BreakdownRow) => [
+        r.name,
+        r.kpis.active_users,
+        r.kpis.chat_sessions,
+        r.kpis.chat_messages,
+        r.kpis.unanswered,
+        r.kpis.unanswered_pct,
+        r.kpis.board_items,
+        r.kpis.comments,
+        r.kpis.likes,
+        r.kpis.files_uploaded,
+      ]),
+    };
+
+    const sections: CsvSection[] = [summary, overTime, breakdown];
+    if (unanswered) {
+      sections.push({
+        title: t("unansweredPanel"),
+        headers: [t("question"), t("municipality"), t("date")],
+        rows: unanswered.map((u) => [
+          u.question,
+          u.municipality_name ?? "",
+          u.created_at,
+        ]),
+      });
+    }
+
     const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      new Blob([toSectionedCsv(sections)], { type: "text/csv;charset=utf-8" }),
     );
     const a = document.createElement("a");
     a.href = url;
