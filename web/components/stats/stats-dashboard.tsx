@@ -6,6 +6,7 @@ import {
   FileDown,
   FileText,
   MessageCircle,
+  Table2,
   Users,
 } from "lucide-react";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -146,6 +147,18 @@ export function StatsDashboard({
     download(toSectionedCsv(sections), "text/csv;charset=utf-8", "csv");
   }
 
+  /**
+   * The workbook comes from the API, where the charts are written and the
+   * permission check lives. An anchor rather than a fetch: the browser saves
+   * the response straight to disk, and the name comes with it.
+   */
+  function exportWorkbook() {
+    const a = document.createElement("a");
+    a.href = `/api/stats-workbook?scope=${scope}&range=${data.range_days}&lang=${locale}`;
+    a.download = "";
+    a.click();
+  }
+
   function download(contents: string, type: string, extension: string) {
     const url = URL.createObjectURL(new Blob([contents], { type }));
     const a = document.createElement("a");
@@ -274,10 +287,20 @@ export function StatsDashboard({
         }
         action={
           <span className="flex flex-wrap gap-2">
-            {/* Two files for two jobs: one to work with, one to send. */}
+            {/* Three files for three jobs: one to send, one to work in, one to
+                feed something else. */}
             <Button variant="secondary" onClick={exportReport}>
               <FileDown className="size-4" />
               {t("exportReport")}
+            </Button>
+            {/* A link rather than a fetch: the workbook is built by the API,
+                and the browser saves it straight from the response. */}
+            <Button
+              variant="secondary"
+              onClick={exportWorkbook}
+            >
+              <Table2 className="size-4" />
+              {t("exportExcel")}
             </Button>
             <Button variant="secondary" onClick={exportCsv}>
               <Download className="size-4" />

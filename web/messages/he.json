@@ -135,7 +135,8 @@
     "unanswered": "ללא מענה",
     "summaryTitle": "סיכום — {days} הימים האחרונים",
     "overTimeTitle": "לאורך זמן",
-    "exportReport": "ייצוא דוח"
+    "exportReport": "ייצוא דוח",
+    "exportExcel": "ייצוא ל־Excel"
   },
   "chat": {
     "title": "סוכן מחר",

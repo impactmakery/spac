@@ -135,7 +135,8 @@
     "unanswered": "Unanswered",
     "summaryTitle": "Summary — last {days} days",
     "overTimeTitle": "Over time",
-    "exportReport": "Export report"
+    "exportReport": "Export report",
+    "exportExcel": "Export Excel"
   },
   "chat": {
     "title": "Tomorrow Agent",

@@ -1,7 +1,8 @@
 import uuid
 from datetime import date, timedelta
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
@@ -16,6 +17,7 @@ from app.models import (
     User,
 )
 from app.services.metrics import TZ
+from app.services.stats_export import COPY, ExportInput, build_workbook
 
 ALLOWED_RANGES = (7, 30, 90)
 
@@ -208,4 +210,76 @@ def platform_stats(
             )
             for q, name, last_asked in unanswered
         ],
+    )
+
+
+def _xlsx_response(data: ExportInput, filename: str) -> Response:
+    return Response(
+        content=build_workbook(data),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={
+            # filename* so a Hebrew name survives the trip; filename= as the
+            # fallback for anything that does not read RFC 5987.
+            "Content-Disposition": (
+                f'attachment; filename="{filename}"; '
+                f"filename*=UTF-8''{quote(filename)}"
+            )
+        },
+    )
+
+
+@router.get("/platform.xlsx")
+def platform_stats_xlsx(
+    range_days: int = 30,
+    lang: str = "he",
+    actor: User = Depends(require_system_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    """The same figures as /platform, as a workbook with live Excel charts.
+
+    Built here rather than in the browser because the charts are real ones —
+    each points at a range on a sheet, so a number changed in Excel moves the
+    chart with it.
+    """
+    stats = platform_stats(range_days=range_days, actor=actor, db=db)
+    return _xlsx_response(
+        ExportInput(
+            lang=lang,
+            range_days=range_days,
+            scope="platform",
+            title=COPY.get(lang, COPY["he"])["by_group"],
+            kpis=stats.kpis,
+            series=stats.series,
+            breakdown=stats.breakdown,
+            unanswered=stats.unanswered_questions,
+        ),
+        f"usage-platform-{range_days}d.xlsx",
+    )
+
+
+@router.get("/municipality.xlsx")
+def municipality_stats_xlsx(
+    range_days: int = 30,
+    municipality_id: str | None = None,
+    lang: str = "he",
+    actor: User = Depends(require_municipality_admin),
+    db: Session = Depends(get_db),
+) -> Response:
+    stats = municipality_stats(
+        range_days=range_days, municipality_id=municipality_id, actor=actor, db=db
+    )
+    return _xlsx_response(
+        ExportInput(
+            lang=lang,
+            range_days=range_days,
+            scope="municipality",
+            title=COPY.get(lang, COPY["he"])["by_group_dept"],
+            kpis=stats.kpis,
+            series=stats.series,
+            breakdown=stats.breakdown,
+            unanswered=None,
+        ),
+        f"usage-municipality-{range_days}d.xlsx",
     )
