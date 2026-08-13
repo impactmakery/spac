@@ -18,7 +18,8 @@ import { StatTile } from "@/components/charts/stat-tile";
 import { PageHeader } from "@/components/page-header";
 import { Button, Card, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
-import { buildReportHtml, REPORT_COLORS } from "@/lib/stats-report";
+import { MEASURE_COLOR, MEASURE_HEX } from "@/lib/stats-colors";
+import { buildReportHtml } from "@/lib/stats-report";
 import {
   toSectionedCsv,
   type BreakdownRow,
@@ -211,12 +212,12 @@ export function StatsDashboard({
       lines: [
         {
           title: t("activeUsersOverTime"),
-          color: REPORT_COLORS[0],
+          color: MEASURE_HEX.active_users,
           points: data.series.map((p) => ({ day: p.day, value: p.active_users })),
         },
         {
           title: t("chatVolumeOverTime"),
-          color: REPORT_COLORS[2],
+          color: MEASURE_HEX.chat_messages,
           points: data.series.map((p) => ({ day: p.day, value: p.chat_messages })),
         },
       ],
@@ -237,9 +238,21 @@ export function StatsDashboard({
         items: data.breakdown.map((r) => ({
           name: r.name,
           parts: [
-            { label: t("chatMessages"), value: r.kpis.chat_messages, color: REPORT_COLORS[0] },
-            { label: t("boardItems"), value: r.kpis.board_items, color: REPORT_COLORS[1] },
-            { label: t("filesUploaded"), value: r.kpis.files_uploaded, color: REPORT_COLORS[2] },
+            {
+              label: t("chatMessages"),
+              value: r.kpis.chat_messages,
+              color: MEASURE_HEX.chat_messages,
+            },
+            {
+              label: t("boardItems"),
+              value: r.kpis.board_items,
+              color: MEASURE_HEX.board_items,
+            },
+            {
+              label: t("filesUploaded"),
+              value: r.kpis.files_uploaded,
+              color: MEASURE_HEX.files_uploaded,
+            },
           ],
         })),
       },
@@ -345,24 +358,32 @@ export function StatsDashboard({
               value={data.kpis.active_users}
               hint={t("activeUsersHint")}
               icon={<Users className="size-4" />}
+              color={MEASURE_COLOR.active_users}
             />
             <StatTile
               label={t("chatSessions")}
               value={data.kpis.chat_sessions}
               icon={<MessageCircle className="size-4" />}
+              color={MEASURE_COLOR.chat_sessions}
             />
             <StatTile
               label={t("chatMessages")}
               value={data.kpis.chat_messages}
               hint={t("chatMessagesHint")}
+              color={MEASURE_COLOR.chat_messages}
             />
             <StatTile
               label={t("unansweredPct")}
               value={`${data.kpis.unanswered_pct}%`}
               hint={`${data.kpis.unanswered} / ${data.kpis.chat_messages}`}
             />
-            <StatTile label={t("boardItems")} value={data.kpis.board_items} />
             <StatTile
+              label={t("boardItems")}
+              value={data.kpis.board_items}
+              color={MEASURE_COLOR.board_items}
+            />
+            <StatTile
+              color={MEASURE_COLOR.files_uploaded}
               label={t("filesUploaded")}
               value={data.kpis.files_uploaded}
               icon={<FileText className="size-4" />}
@@ -381,7 +402,7 @@ export function StatsDashboard({
                   day: s.day,
                   value: s.active_users,
                 }))}
-                color="var(--chart-1)"
+                color={MEASURE_COLOR.active_users}
               />
             </Card>
             <Card className="p-5">
@@ -394,7 +415,7 @@ export function StatsDashboard({
                   day: s.day,
                   value: s.chat_messages,
                 }))}
-                color="var(--chart-3)"
+                color={MEASURE_COLOR.chat_messages}
               />
             </Card>
           </div>
@@ -426,7 +447,11 @@ export function StatsDashboard({
                 label: b.name,
                 value: b.kpis[compareBy],
               }))}
-              color="var(--chart-1)"
+              // The measure's own colour, so changing the picker recolours the
+              // bars to match the tile and the segment that mean the same
+              // thing. Colour follows the measure, never the municipality —
+              // otherwise filtering the list would repaint whoever survived.
+              color={MEASURE_COLOR[compareBy]}
             />
             <p className="mt-3 text-xs text-muted-foreground">
               {t("comparingHelp", {
@@ -452,9 +477,21 @@ export function StatsDashboard({
               label={t("activityMix")}
               emptyLabel={t("empty")}
               series={[
-                { key: "chat_messages", label: t("chatMessages"), color: "var(--chart-1)" },
-                { key: "board_items", label: t("boardItems"), color: "var(--chart-2)" },
-                { key: "files_uploaded", label: t("filesUploaded"), color: "var(--chart-3)" },
+                {
+                  key: "chat_messages",
+                  label: t("chatMessages"),
+                  color: MEASURE_COLOR.chat_messages,
+                },
+                {
+                  key: "board_items",
+                  label: t("boardItems"),
+                  color: MEASURE_COLOR.board_items,
+                },
+                {
+                  key: "files_uploaded",
+                  label: t("filesUploaded"),
+                  color: MEASURE_COLOR.files_uploaded,
+                },
               ]}
               data={data.breakdown.map((b) => ({
                 label: b.name,
