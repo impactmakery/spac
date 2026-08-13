@@ -134,7 +134,8 @@
     "question": "שאלה",
     "unanswered": "ללא מענה",
     "summaryTitle": "סיכום — {days} הימים האחרונים",
-    "overTimeTitle": "לאורך זמן"
+    "overTimeTitle": "לאורך זמן",
+    "exportReport": "ייצוא דוח"
   },
   "chat": {
     "title": "סוכן מחר",

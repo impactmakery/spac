@@ -1,7 +1,14 @@
 "use client";
 
-import { BarChart3, Download, FileText, MessageCircle, Users } from "lucide-react";
-import { useTranslations } from "next-intl";
+import {
+  BarChart3,
+  Download,
+  FileDown,
+  FileText,
+  MessageCircle,
+  Users,
+} from "lucide-react";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { BarChart } from "@/components/charts/bar-chart";
 import { StackedBar } from "@/components/charts/stacked-bar";
@@ -10,6 +17,7 @@ import { StatTile } from "@/components/charts/stat-tile";
 import { PageHeader } from "@/components/page-header";
 import { Button, Card, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
+import { buildReportHtml, REPORT_COLORS } from "@/lib/stats-report";
 import {
   toSectionedCsv,
   type BreakdownRow,
@@ -48,6 +56,8 @@ export function StatsDashboard({
   data: StatsData | PlatformStatsData;
 }) {
   const t = useTranslations("stats");
+  const format = useFormatter();
+  const locale = useLocale();
   const router = useRouter();
   const [compareBy, setCompareBy] = useState<Comparable>("chat_messages");
   const basePath = scope === "platform" ? "/system/stats" : "/admin/stats";
@@ -133,14 +143,126 @@ export function StatsDashboard({
       });
     }
 
-    const url = URL.createObjectURL(
-      new Blob([toSectionedCsv(sections)], { type: "text/csv;charset=utf-8" }),
-    );
+    download(toSectionedCsv(sections), "text/csv;charset=utf-8", "csv");
+  }
+
+  function download(contents: string, type: string, extension: string) {
+    const url = URL.createObjectURL(new Blob([contents], { type }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `usage-${scope}-${data.range_days}d.csv`;
+    a.download = `usage-${scope}-${data.range_days}d.${extension}`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * The same page, as a file to send somebody.
+   *
+   * A spreadsheet is for working with numbers; this is for showing them. It
+   * opens in a browser, prints to PDF as it stands, and pastes into Word or
+   * Google Docs with its tables and charts intact.
+   */
+  function exportReport() {
+    const grouping = scope === "platform" ? t("municipality") : t("department");
+    const comparisonTitle =
+      scope === "platform" ? t("byMunicipality") : t("byDepartment");
+
+    const html = buildReportHtml({
+      dir: locale === "he" ? "rtl" : "ltr",
+      lang: locale,
+      title: t("title"),
+      subtitle:
+        scope === "platform" ? t("subtitlePlatform") : t("subtitleMunicipality"),
+      rangeLabel: t("summaryTitle", { days: data.range_days }),
+      generatedLabel: format.dateTime(new Date(), { dateStyle: "long" }),
+      tiles: [
+        {
+          label: t("activeUsers"),
+          value: String(data.kpis.active_users),
+          hint: t("activeUsersHint"),
+        },
+        { label: t("chatSessions"), value: String(data.kpis.chat_sessions) },
+        {
+          label: t("chatMessages"),
+          value: String(data.kpis.chat_messages),
+          hint: t("chatMessagesHint"),
+        },
+        {
+          label: t("unansweredPct"),
+          value: `${data.kpis.unanswered_pct}%`,
+          hint: `${data.kpis.unanswered} / ${data.kpis.chat_messages}`,
+        },
+        { label: t("boardItems"), value: String(data.kpis.board_items) },
+        { label: t("filesUploaded"), value: String(data.kpis.files_uploaded) },
+      ],
+      lines: [
+        {
+          title: t("activeUsersOverTime"),
+          color: REPORT_COLORS[0],
+          points: data.series.map((p) => ({ day: p.day, value: p.active_users })),
+        },
+        {
+          title: t("chatVolumeOverTime"),
+          color: REPORT_COLORS[2],
+          points: data.series.map((p) => ({ day: p.day, value: p.chat_messages })),
+        },
+      ],
+      // The measure the reader is looking at, so the file matches the screen
+      // they exported it from.
+      bars: {
+        title: comparisonTitle,
+        caption: t("comparingHelp", {
+          metric: t(COMPARABLE.find((m) => m.key === compareBy)!.label),
+          grouping,
+          days: data.range_days,
+        }),
+        items: data.breakdown.map((r) => ({ name: r.name, value: r.kpis[compareBy] })),
+      },
+      stacks: {
+        title: t("activityMix"),
+        caption: t("activityMixHelp", { days: data.range_days }),
+        items: data.breakdown.map((r) => ({
+          name: r.name,
+          parts: [
+            { label: t("chatMessages"), value: r.kpis.chat_messages, color: REPORT_COLORS[0] },
+            { label: t("boardItems"), value: r.kpis.board_items, color: REPORT_COLORS[1] },
+            { label: t("filesUploaded"), value: r.kpis.files_uploaded, color: REPORT_COLORS[2] },
+          ],
+        })),
+      },
+      table: {
+        title: t("tableView"),
+        headers: [
+          grouping,
+          t("activeUsers"),
+          t("chatMessages"),
+          t("unansweredPct"),
+          t("boardItems"),
+          t("filesUploaded"),
+        ],
+        rows: data.breakdown.map((r) => [
+          r.name,
+          r.kpis.active_users,
+          r.kpis.chat_messages,
+          r.kpis.unanswered_pct,
+          r.kpis.board_items,
+          r.kpis.files_uploaded,
+        ]),
+      },
+      unanswered: unanswered?.length
+        ? {
+            title: t("unansweredPanel"),
+            caption: t("unansweredHelp"),
+            headers: [t("question"), t("municipality"), t("date")],
+            rows: unanswered.map((u) => [
+              u.question,
+              u.municipality_name ?? "",
+              u.created_at,
+            ]),
+          }
+        : null,
+    });
+    download(html, "text/html;charset=utf-8", "html");
   }
 
   return (
@@ -151,10 +273,17 @@ export function StatsDashboard({
           scope === "platform" ? t("subtitlePlatform") : t("subtitleMunicipality")
         }
         action={
-          <Button variant="secondary" onClick={exportCsv}>
-            <Download className="size-4" />
-            {t("exportCsv")}
-          </Button>
+          <span className="flex flex-wrap gap-2">
+            {/* Two files for two jobs: one to work with, one to send. */}
+            <Button variant="secondary" onClick={exportReport}>
+              <FileDown className="size-4" />
+              {t("exportReport")}
+            </Button>
+            <Button variant="secondary" onClick={exportCsv}>
+              <Download className="size-4" />
+              {t("exportCsv")}
+            </Button>
+          </span>
         }
       />
 
