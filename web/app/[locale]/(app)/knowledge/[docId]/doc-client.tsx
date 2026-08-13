@@ -11,6 +11,7 @@ import {
 import { StatusChip } from "@/components/kb-doc-row";
 import { Bidi, Button, Card, FieldError } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
+import { isImageType, isPdfType } from "@/lib/file-kinds";
 import { formatBytes } from "@/lib/format";
 import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
 import { useConfirm } from "@/components/confirm";
@@ -42,7 +43,8 @@ export function DocClient({
   const downloadUrl = doc.download_url.startsWith("/")
     ? `${apiBase}${doc.download_url}`
     : doc.download_url;
-  const isPdf = doc.content_type === "application/pdf";
+  const isPdf = isPdfType(doc.content_type);
+  const isImage = isImageType(doc.content_type);
 
   async function onReplace(files: FileList | null) {
     if (!files?.length) return;
@@ -157,6 +159,19 @@ export function DocClient({
       <Card className="overflow-hidden">
         {isPdf ? (
           <iframe src={downloadUrl} className="h-[70vh] w-full" title={doc.title} />
+        ) : isImage ? (
+          // A scan or a photograph is already the document; there is nothing to
+          // extract from it and no viewer to put round it. The API serves these
+          // types inline, which is what makes showing them here safe.
+          <div className="flex max-h-[70vh] justify-center overflow-auto bg-muted p-4">
+            {/* eslint-disable-next-line @next/next/no-img-element -- a signed,
+                short-lived URL on the storage host. */}
+            <img
+              src={downloadUrl}
+              alt={doc.title}
+              className="max-h-full w-auto max-w-full object-contain"
+            />
+          </div>
         ) : preview?.available ? (
           <div className="max-h-[70vh] overflow-auto p-6">
             <p className="mb-3 text-xs text-muted-foreground">{t("textPreview")}</p>

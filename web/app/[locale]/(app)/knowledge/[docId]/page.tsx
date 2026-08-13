@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
 import { DocClient } from "./doc-client";
+import { isImageType, isPdfType } from "@/lib/file-kinds";
 
 export default async function KbDocumentPage({
   params,
@@ -16,10 +17,11 @@ export default async function KbDocumentPage({
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
-  // A PDF renders in the frame, so the text is only worth fetching for the
-  // formats that cannot: Word, PowerPoint, Excel and plain text.
+  // A PDF renders in its own viewer and an image renders as itself, so the
+  // extracted text is only worth fetching for the formats that show neither:
+  // Word, PowerPoint, Excel and plain text.
   let preview: TextPreview | null = null;
-  if (doc.content_type !== "application/pdf") {
+  if (!isPdfType(doc.content_type) && !isImageType(doc.content_type)) {
     try {
       preview = await apiFetch<TextPreview>(`/api/kb-documents/${docId}/text`);
     } catch {
