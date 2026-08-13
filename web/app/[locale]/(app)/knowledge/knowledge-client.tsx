@@ -13,7 +13,7 @@ import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
 import { type Library, libraryTabs, type MunicipalityRef, sameLibrary } from "@/lib/libraries";
 import type { Role } from "@/lib/roles";
-import { attempt, MAX_SEND_BYTES, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { attempt, MAX_SEND_BYTES, tooBigParams, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 import { formatBytes, isolated } from "@/lib/format";
 
 // Often enough to feel live, rarely enough that a library left open overnight
@@ -114,7 +114,7 @@ export function KnowledgeClient({
       // the worst moment to learn it.
       if (tooBigToSend(file)) {
         toast(
-          `${file.name}: ${t("tooBigToSend", { size: formatBytes(file.size) })}`,
+          `${file.name}: ${t("tooBigToSend", tooBigParams(file))}`,
           "error",
         );
         failed += 1;

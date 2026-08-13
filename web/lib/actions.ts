@@ -11,6 +11,8 @@
  * `attempt` turns a rejection into the shape the call site already handles.
  */
 
+import { formatBytes, isolated } from "./format";
+
 export type ActionResult<T = undefined> =
   | { ok: true; data?: T }
   | { error: string; status?: number };
@@ -39,4 +41,18 @@ export const MAX_SEND_BYTES = 4 * 1024 * 1024;
 
 export function tooBigToSend(file: { size: number }): boolean {
   return file.size > MAX_SEND_BYTES;
+}
+
+/**
+ * The values a "too large" message needs, isolated so Hebrew prose around
+ * them keeps its own direction.
+ *
+ * Both come from the constant above rather than being written into the
+ * sentence, so the number people read is the number that is enforced.
+ */
+export function tooBigParams(file: { size: number }) {
+  return {
+    size: isolated(formatBytes(file.size)),
+    limit: isolated(formatBytes(MAX_SEND_BYTES)),
+  };
 }

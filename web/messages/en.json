@@ -251,7 +251,7 @@
     "allMunicipalitiesTitle": "Every municipality board",
     "sending": "Publishing…",
     "uploading": "Uploading…",
-    "errFileTooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly."
+    "errFileTooBigToSend": "That file is {size}. The limit is {limit} — for anything larger, ask a system administrator to load it."
   },
   "departmentArea": {
     "filesTab": "Files",
@@ -307,7 +307,7 @@
     "uploadingFailed": "{count, plural, one {# file could not be uploaded} other {# files could not be uploaded}}",
     "indexingInProgress": "{count, plural, one {# document is still being read} other {# documents are still being read}} — this page updates itself.",
     "uploadFailed": "could not be sent — try again, or upload it in a smaller file",
-    "tooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly.",
+    "tooBigToSend": "That file is {size}. The limit is {limit} — for anything larger, ask a system administrator to load it.",
     "uploadHint": "PDF, DOCX, PPTX or XLSX, up to {size}."
   },
   "municipalities": {

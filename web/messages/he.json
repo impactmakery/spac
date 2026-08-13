@@ -251,7 +251,7 @@
     "allMunicipalitiesTitle": "הלוחות של כל הרשויות",
     "sending": "מפרסמים…",
     "uploading": "מעלים את הקובץ…",
-    "errFileTooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות."
+    "errFileTooBigToSend": "הקובץ במשקל {size}. המגבלה היא {limit} — לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו."
   },
   "departmentArea": {
     "filesTab": "קבצים",
@@ -307,7 +307,7 @@
     "uploadingFailed": "{count, plural, one {קובץ אחד לא הועלה} other {# קבצים לא הועלו}}",
     "indexingInProgress": "{count, plural, one {מסמך אחד עדיין נקרא} other {# מסמכים עדיין נקראים}} — הדף מתעדכן מעצמו.",
     "uploadFailed": "לא ניתן היה לשלוח — נסו שוב, או העלו קובץ קטן יותר",
-    "tooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות.",
+    "tooBigToSend": "הקובץ במשקל {size}. המגבלה היא {limit} — לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו.",
     "uploadHint": "PDF, DOCX, PPTX או XLSX, עד {size}."
   },
   "municipalities": {

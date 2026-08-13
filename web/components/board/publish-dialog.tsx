@@ -10,7 +10,7 @@ import { useToast } from "@/components/toast";
 import { FileDrop } from "@/components/board/file-drop";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import type { BoardKind, CategoryRef } from "@/lib/board-types";
-import { attempt, MAX_SEND_BYTES, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { attempt, MAX_SEND_BYTES, tooBigParams, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 import { formatBytes, isolated } from "@/lib/format";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
@@ -114,7 +114,7 @@ export function PublishDialog({
       // Any file type is accepted; only the size is the client's business.
       if (file && file.size > MAX_FILE_BYTES) return setError(t("errFileSize"));
       if (file && tooBigToSend(file)) {
-        const message = t("errFileTooBigToSend", { size: formatBytes(file.size) });
+        const message = t("errFileTooBigToSend", tooBigParams(file));
         toast(message, "error");
         return setError(message);
       }
@@ -152,7 +152,7 @@ export function PublishDialog({
       const message =
         res.error === TRANSPORT_FAILED
           ? file
-            ? t("errFileTooBigToSend", { size: formatBytes(file.size) })
+            ? t("errFileTooBigToSend", tooBigParams(file))
             : tc("somethingWentWrong")
           : res.status === 415
             ? t("errFileType")

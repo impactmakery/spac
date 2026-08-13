@@ -15,7 +15,7 @@ import { formatBytes } from "@/lib/format";
 import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
-import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { attempt, tooBigParams, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 
 export function DocClient({
   doc,
@@ -49,7 +49,7 @@ export function DocClient({
     const file = files[0];
     setError(null);
     if (tooBigToSend(file)) {
-      const message = t("tooBigToSend", { size: formatBytes(file.size) });
+      const message = t("tooBigToSend", tooBigParams(file));
       toast(message, "error");
       return setError(message);
     }
@@ -61,7 +61,7 @@ export function DocClient({
     if ("error" in res) {
       const message =
         res.error === TRANSPORT_FAILED
-          ? t("tooBigToSend", { size: formatBytes(file.size) })
+          ? t("tooBigToSend", tooBigParams(file))
           : res.status === 415
             ? t("badType")
             : res.status === 413
