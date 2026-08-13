@@ -143,8 +143,13 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
                   </td>
                   <td className="p-3">{row.user_count}</td>
                   <td className="p-3">{row.department_count}</td>
-                  <td className="p-3 text-muted-foreground">
-                    <Bidi>{format.dateTime(new Date(row.created_at), { dateStyle: "medium" })}</Bidi>
+                  {/* nowrap: a date broken across two lines reads as two
+                      values, and the table already scrolls sideways rather
+                      than squeezing its columns. */}
+                  <td className="whitespace-nowrap p-3 text-muted-foreground">
+                    <Bidi>
+                      {format.dateTime(new Date(row.created_at), { dateStyle: "medium" })}
+                    </Bidi>
                   </td>
                   <td className="p-3">
                     <Badge tone={row.status === "active" ? "accent" : "destructive"}>
@@ -152,7 +157,10 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
                     </Badge>
                   </td>
                   <td className="p-3">
-                    <div className="flex flex-wrap justify-end gap-2">
+                    {/* Not flex-wrap: wrapping turned three short actions into
+                        a three-line stack and made every row three times
+                        taller. The table scrolls instead. */}
+                    <div className="flex justify-end gap-2 whitespace-nowrap">
                       <Button
                         variant="ghost"
                         className="px-2 py-1"

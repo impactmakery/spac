@@ -11,8 +11,9 @@ import {
 } from "@/app/[locale]/(app)/admin-actions";
 import { Dialog } from "@/components/dialog";
 import { PageHeader } from "@/components/page-header";
-import { Button, Card, FieldError, Input, Label, Select, cn } from "@/components/ui";
+import { Bidi, Button, Card, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
+import { otherName } from "@/lib/category-name";
 import type { CategoryRow } from "@/lib/admin-types";
 import { CATEGORY_COLORS, categoryColor } from "@/lib/category-colors";
 import { useConfirm } from "@/components/confirm";
@@ -125,8 +126,16 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
                 <div>
                 <p className="font-semibold text-foreground">{label(row)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {row.name_he}
-                  {row.name_en && ` · ${row.name_en}`} ·{" "}
+                  {/* Only the name the heading is not already showing, and only
+                      when it says something different. Most categories here are
+                      named the same in both languages, so printing both read as
+                      a stutter: "Manuals & Forms · Manuals & Forms · 2 items". */}
+                  {otherName(row, locale) && (
+                    <>
+                      <Bidi>{otherName(row, locale)}</Bidi>
+                      {" · "}
+                    </>
+                  )}
                   {t("items", { count: row.item_count })}
                 </p>
                 </div>

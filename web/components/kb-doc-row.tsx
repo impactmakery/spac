@@ -44,11 +44,20 @@ export function KbDocListRow({
       </span>
       <Link href={`/knowledge/${doc.id}`} className="min-w-0 flex-1">
         <p className="truncate font-semibold text-foreground">{doc.title}</p>
-        <p className="truncate text-xs text-muted-foreground">
-          <Bidi>{typeLabel}</Bidi> · <Bidi>{formatBytes(doc.size_bytes)}</Bidi> ·{" "}
+        {/* Wraps on a narrow screen rather than truncating. Truncation cuts
+            from the end of the line, and the end of this line is the date —
+            so on a phone every row lost the one fact that says whether the
+            document is current. The size goes instead: it is the least useful
+            of the four and the easiest to spare. */}
+        <p className="text-xs text-muted-foreground sm:truncate">
+          <Bidi>{typeLabel}</Bidi>
+          <span className="hidden sm:inline">
+            {" · "}
+            <Bidi>{formatBytes(doc.size_bytes)}</Bidi>
+          </span>{" "}
           {/* which library this is sits in the tab above, so the useful
               detail on the row is who put the document there */}
-          <Bidi>{doc.uploader_name ?? doc.municipality_name ?? t("program")}</Bidi> ·{" "}
+          · <Bidi>{doc.uploader_name ?? doc.municipality_name ?? t("program")}</Bidi> ·{" "}
           <Bidi>
             {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
           </Bidi>
