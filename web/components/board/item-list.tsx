@@ -4,7 +4,7 @@ import { FileText, Heart, Link2, MessageCircle, Sparkles } from "lucide-react";
 import { useFormatter } from "next-intl";
 import { CategoryChip } from "@/components/board/item-card";
 import { AnsweredBadge, KindBadge } from "@/components/board/kind-badge";
-import { Card } from "@/components/ui";
+import { Bidi, Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
 
@@ -36,8 +36,10 @@ export function ItemList({ items }: { items: BoardItemRow[] }) {
               {item.title}
             </span>
             <span className="block truncate text-xs text-muted-foreground">
-              {item.author.name ?? "—"} ·{" "}
-              {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+              <Bidi>{item.author.name ?? "—"}</Bidi> ·{" "}
+              <Bidi>
+                {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+              </Bidi>
             </span>
           </Link>
           <span className="hidden shrink-0 items-center gap-1.5 sm:flex">

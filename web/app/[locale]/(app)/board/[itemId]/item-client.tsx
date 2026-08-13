@@ -26,7 +26,7 @@ import { PromptBlock } from "@/components/board/prompt-block";
 import { Reactions } from "@/components/board/reactions";
 import { Dialog } from "@/components/dialog";
 import { Linkify } from "@/components/linkify";
-import { Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
+import { Bidi, Button, Card, FieldError, Input, Label, Select } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type {
   BoardComment,
@@ -231,7 +231,7 @@ export function ItemClient({
             {item.author.name ?? "—"}
             {item.author.inactive && ` (${t("inactiveAuthor")})`}
             {item.author.municipality_name && ` · ${item.author.municipality_name}`} ·{" "}
-            {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+            <Bidi>{format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}</Bidi>
           </span>
           <button
             onClick={onLike}
@@ -437,10 +437,10 @@ function CommentCard({
           {comment.author.name ?? "—"}
           {comment.author.inactive && ` (${t("inactiveAuthor")})`}
           <span className="ms-2 text-xs font-normal text-muted-foreground">
-            {format.dateTime(new Date(comment.created_at), {
+            <Bidi>{format.dateTime(new Date(comment.created_at), {
               dateStyle: "short",
               timeStyle: "short",
-            })}
+            })}</Bidi>
           </span>
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">

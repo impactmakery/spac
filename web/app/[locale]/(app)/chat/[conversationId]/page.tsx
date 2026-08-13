@@ -1,3 +1,4 @@
+import { getLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { ChatClient } from "@/components/chat/chat-client";
 import { ApiError, apiFetch } from "@/lib/api";
@@ -18,7 +19,7 @@ export default async function ConversationPage({
   }
   const [conversations, sampleQuestions] = await Promise.all([
     apiFetch<ConversationRow[]>("/api/conversations"),
-    apiFetch<string[]>("/api/chat/sample-questions"),
+    apiFetch<string[]>(`/api/chat/sample-questions?lang=${await getLocale()}`),
   ]);
 
   return (

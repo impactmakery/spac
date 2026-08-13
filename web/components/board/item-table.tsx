@@ -5,7 +5,7 @@ import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { CategoryChip } from "@/components/board/item-card";
 import { AnsweredBadge, KindBadge } from "@/components/board/kind-badge";
-import { Card } from "@/components/ui";
+import { Bidi, Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
 
@@ -136,10 +136,12 @@ export function ItemTable({ items }: { items: BoardItemRow[] }) {
                 <CategoryChip category={item.category} />
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
-                {item.author.name ?? "—"}
+                <Bidi>{item.author.name ?? "—"}</Bidi>
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
-                {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+                <Bidi>
+                  {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+                </Bidi>
               </td>
               <td className="whitespace-nowrap px-4 py-2.5 text-muted-foreground">
                 {t("activitySummary", {

@@ -228,8 +228,6 @@
     "eventLocationPlaceholder": "חדר, כתובת או קישור",
     "eventDateRequired": "לאירוע נדרש תאריך.",
     "eventPast": "הסתיים",
-    "eventOn": "{date}",
-    "eventAtPlace": "{date} · {place}",
     "answered": "נענתה",
     "openQuestion": "פתוחה",
     "acceptAnswer": "סמנו כתשובה",

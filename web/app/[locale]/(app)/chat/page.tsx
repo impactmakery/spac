@@ -17,7 +17,7 @@ export default async function ChatPage() {
 
   // Only someone with no conversations at all sees the starter questions,
   // which is exactly who they are for.
-  const sampleQuestions = await apiFetch<string[]>("/api/chat/sample-questions");
+  const sampleQuestions = await apiFetch<string[]>(`/api/chat/sample-questions?lang=${await getLocale()}`);
   return (
     <ChatClient
       conversations={conversations}

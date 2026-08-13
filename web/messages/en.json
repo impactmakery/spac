@@ -228,8 +228,6 @@
     "eventLocationPlaceholder": "Room, address, or a link",
     "eventDateRequired": "An event needs a date.",
     "eventPast": "Finished",
-    "eventOn": "{date}",
-    "eventAtPlace": "{date} · {place}",
     "answered": "Answered",
     "openQuestion": "Open",
     "acceptAnswer": "Mark as the answer",

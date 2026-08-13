@@ -9,7 +9,7 @@ import {
   retryKbDocument,
 } from "@/app/[locale]/(app)/kb-actions";
 import { StatusChip } from "@/components/kb-doc-row";
-import { Button, Card, FieldError } from "@/components/ui";
+import { Bidi, Button, Card, FieldError } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatBytes } from "@/lib/format";
 import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
@@ -93,7 +93,7 @@ export function DocClient({
             <p className="text-sm text-muted-foreground">
               {doc.filename} · {formatBytes(doc.size_bytes)} ·{" "}
               {doc.municipality_name ?? t("program")} ·{" "}
-              {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
+              <Bidi>{format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}</Bidi>
             </p>
           </div>
         </div>

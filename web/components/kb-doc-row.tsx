@@ -2,7 +2,7 @@
 
 import { FileText, Loader2, Trash2 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { Badge, Card } from "@/components/ui";
+import { Badge, Bidi, Card } from "@/components/ui";
 import { Link } from "@/i18n/navigation";
 import { formatBytes } from "@/lib/format";
 import type { KbDocRow } from "@/lib/kb-types";
@@ -45,11 +45,13 @@ export function KbDocListRow({
       <Link href={`/knowledge/${doc.id}`} className="min-w-0 flex-1">
         <p className="truncate font-semibold text-foreground">{doc.title}</p>
         <p className="truncate text-xs text-muted-foreground">
-          {typeLabel} · {formatBytes(doc.size_bytes)} ·{" "}
+          <Bidi>{typeLabel}</Bidi> · <Bidi>{formatBytes(doc.size_bytes)}</Bidi> ·{" "}
           {/* which library this is sits in the tab above, so the useful
               detail on the row is who put the document there */}
-          {doc.uploader_name ?? doc.municipality_name ?? t("program")} ·{" "}
-          {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
+          <Bidi>{doc.uploader_name ?? doc.municipality_name ?? t("program")}</Bidi> ·{" "}
+          <Bidi>
+            {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
+          </Bidi>
         </p>
       </Link>
       <StatusChip status={doc.status} />

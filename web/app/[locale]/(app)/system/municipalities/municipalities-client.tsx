@@ -11,7 +11,7 @@ import {
 } from "@/app/[locale]/(app)/admin-actions";
 import { Dialog } from "@/components/dialog";
 import { PageHeader } from "@/components/page-header";
-import { Badge, Button, Card, FieldError, Input, Label } from "@/components/ui";
+import { Badge, Bidi, Button, Card, FieldError, Input, Label } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import type { MunicipalityRow } from "@/lib/admin-types";
 import { useConfirm } from "@/components/confirm";
@@ -144,7 +144,7 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
                   <td className="p-3">{row.user_count}</td>
                   <td className="p-3">{row.department_count}</td>
                   <td className="p-3 text-muted-foreground">
-                    {format.dateTime(new Date(row.created_at), { dateStyle: "medium" })}
+                    <Bidi>{format.dateTime(new Date(row.created_at), { dateStyle: "medium" })}</Bidi>
                   </td>
                   <td className="p-3">
                     <Badge tone={row.status === "active" ? "accent" : "destructive"}>

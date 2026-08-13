@@ -13,7 +13,7 @@ import {
 } from "@/app/[locale]/(app)/board-actions";
 import { StatusChip } from "@/components/kb-doc-row";
 import { PageHeader } from "@/components/page-header";
-import { Button, Card, FieldError, Input, cn } from "@/components/ui";
+import { Bidi, Button, Card, FieldError, Input, cn } from "@/components/ui";
 import { Linkify } from "@/components/linkify";
 import { useRouter } from "@/i18n/navigation";
 import type { DeptFile, DeptPost } from "@/lib/board-types";
@@ -169,7 +169,7 @@ export function DepartmentClient({
                   <p className="truncate text-xs text-muted-foreground">
                     {formatBytes(f.size_bytes)} ·{" "}
                     {t("uploadedBy", { name: f.uploader.name ?? "—" })} ·{" "}
-                    {format.dateTime(new Date(f.created_at), { dateStyle: "medium" })}
+                    <Bidi>{format.dateTime(new Date(f.created_at), { dateStyle: "medium" })}</Bidi>
                   </p>
                 </a>
                 <StatusChip status={f.status} />
@@ -219,10 +219,10 @@ export function DepartmentClient({
                       <p className="text-sm font-medium text-foreground">
                         {p.author.name ?? "—"}
                         <span className="ms-2 text-xs font-normal text-muted-foreground">
-                          {format.dateTime(new Date(p.created_at), {
+                          <Bidi>{format.dateTime(new Date(p.created_at), {
                             dateStyle: "short",
                             timeStyle: "short",
-                          })}
+                          })}</Bidi>
                         </span>
                       </p>
                       {p.can_delete && (

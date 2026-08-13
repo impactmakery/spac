@@ -4,7 +4,7 @@ import { FileText, Heart, Link2, MessageCircle, Pencil, Sparkles, Trash2 } from 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { deleteBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { AnsweredBadge, EventLine, KindBadge } from "@/components/board/kind-badge";
-import { Card } from "@/components/ui";
+import { Bidi, Card } from "@/components/ui";
 import { Link, useRouter } from "@/i18n/navigation";
 import type { BoardItemRow } from "@/lib/board-types";
 import { categoryColor } from "@/lib/category-colors";
@@ -116,10 +116,20 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
 
       <div className="mt-4 flex items-center justify-between border-t border-border pt-3 text-xs text-muted-foreground">
         <span className="truncate">
-          {item.author.name ?? "—"}
-          {item.author.inactive && ` (${t("inactiveAuthor")})`}
-          {item.author.municipality_name && ` · ${item.author.municipality_name}`} ·{" "}
-          {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+          <Bidi>
+            {item.author.name ?? "—"}
+            {item.author.inactive && ` (${t("inactiveAuthor")})`}
+          </Bidi>
+          {item.author.municipality_name && (
+            <>
+              {" · "}
+              <Bidi>{item.author.municipality_name}</Bidi>
+            </>
+          )}{" "}
+          ·{" "}
+          <Bidi>
+            {format.dateTime(new Date(item.created_at), { dateStyle: "medium" })}
+          </Bidi>
         </span>
         <span className="flex shrink-0 items-center gap-3">
           <span className="inline-flex items-center gap-1">

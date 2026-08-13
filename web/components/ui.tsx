@@ -1,5 +1,5 @@
 import { clsx } from "clsx";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 export function cn(...args: Parameters<typeof clsx>) {
   return clsx(...args);
@@ -57,6 +57,24 @@ export function Label({ className, ...props }: ComponentProps<"label">) {
 export function FieldError({ children }: { children?: string | null }) {
   if (!children) return null;
   return <p className="mt-1.5 text-sm text-destructive">{children}</p>;
+}
+
+/**
+ * Isolates a value from the direction of the text around it.
+ *
+ * Hebrew prose with Latin values inside it — a date, a file size, "DOCX", an
+ * English name — is bidirectional, and the punctuation between them is
+ * directionally neutral. The browser then places that punctuation by the
+ * surrounding run rather than the value it belongs to, so "12 באוג׳ 2026"
+ * renders as "12 ... באוג׳ 2026" with the day thrown to the far end of the
+ * line, and "2026, 22:47" comes back as ",2026 22:47".
+ *
+ * <bdi> tells the browser to resolve each value's direction on its own. It is
+ * one element with no styling and no cost, and it is the difference between a
+ * date a Hebrew reader trusts and one they do not.
+ */
+export function Bidi({ children }: { children: ReactNode }) {
+  return <bdi>{children}</bdi>;
 }
 
 export function Card({ className, ...props }: ComponentProps<"div">) {

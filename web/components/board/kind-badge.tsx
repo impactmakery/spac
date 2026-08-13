@@ -2,6 +2,7 @@
 
 import { CalendarDays, CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
+import { Bidi } from "@/components/ui";
 import type { BoardItemRow, BoardKind } from "@/lib/board-types";
 import { isPast } from "@/lib/board-kinds";
 
@@ -66,9 +67,17 @@ export function EventLine({ item }: { item: BoardItemRow }) {
       }`}
     >
       <CalendarDays className="size-4 shrink-0" />
-      {item.event_location
-        ? t("eventAtPlace", { date, place: item.event_location })
-        : date}
+      {/* Each value resolves its own direction: the date is Latin digits with a
+          Hebrew month, the place is free text in either language, and the "·"
+          between them is neutral. Left alone the comma inside the date jumps
+          in front of the year. */}
+      <Bidi>{date}</Bidi>
+      {item.event_location && (
+        <>
+          {" · "}
+          <Bidi>{item.event_location}</Bidi>
+        </>
+      )}
       {past && <span className="ms-1 no-underline">({t("eventPast")})</span>}
     </span>
   );

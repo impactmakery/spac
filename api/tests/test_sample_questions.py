@@ -122,3 +122,47 @@ def test_a_municipality_with_no_documents_still_gets_something_to_ask(client, db
 def test_a_system_admin_still_sees_everything(client, world):
     asked = " ".join(questions(client, "s@x.org"))
     assert "דחייה" in asked
+
+
+# --- the language of the screen, not of the account -------------------------
+
+
+def test_the_questions_follow_the_interface_not_the_account(client, world, db):
+    """Someone reading Hebrew must not be offered English questions.
+
+    The two disagree the moment anyone uses the language toggle, and the result
+    was "What does the document «פורמט לראיון עם עובדים» say?" under a Hebrew
+    heading — English wrapped around a Hebrew title, which mangles in both
+    directions at once.
+    """
+    from app.models import User
+
+    english_reader = db.query(User).filter_by(email="a@x.org").one()
+    english_reader.language = "en"
+    db.commit()
+
+    headers = auth(client, "a@x.org")
+    hebrew = client.get("/api/chat/sample-questions?lang=he", headers=headers).json()
+    english = client.get("/api/chat/sample-questions?lang=en", headers=headers).json()
+
+    assert any("מה כתוב" in q for q in hebrew), hebrew
+    assert any("What does" in q for q in english), english
+
+
+def test_without_a_language_the_account_still_decides(client, world, db):
+    """The parameter is an override, not a requirement — anything calling the
+    endpoint without one keeps working."""
+    from app.models import User
+
+    reader = db.query(User).filter_by(email="a@x.org").one()
+    reader.language = "he"
+    db.commit()
+
+    questions = client.get("/api/chat/sample-questions", headers=auth(client, "a@x.org")).json()
+    assert any("מה כתוב" in q for q in questions), questions
+
+
+def test_an_unknown_language_falls_back_rather_than_failing(client, world):
+    r = client.get("/api/chat/sample-questions?lang=zz", headers=auth(client, "a@x.org"))
+    assert r.status_code == 200
+    assert r.json()

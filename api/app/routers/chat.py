@@ -181,7 +181,9 @@ GENERIC_QUESTIONS = {
 
 @router.get("/chat/sample-questions", response_model=list[str])
 def sample_questions(
-    user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    lang: str | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ) -> list[str]:
     """Four starter questions drawn from document titles this person may read.
 
@@ -196,7 +198,13 @@ def sample_questions(
         .order_by(desc(KbDocument.created_at))
         .limit(4)
     ).all()
-    lang = "he" if user.language == "he" else "en"
+    # The screen the reader is on wins over the language stored on their
+    # account. Those disagree the moment someone switches language with the
+    # toggle, and the result was English questions under a Hebrew heading,
+    # each one quoting a Hebrew document title — which mangles in both
+    # directions at once.
+    chosen = lang or user.language
+    lang = "he" if chosen == "he" else "en"
     if not titles:
         return GENERIC_QUESTIONS[lang]
     if lang == "he":
