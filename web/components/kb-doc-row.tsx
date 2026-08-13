@@ -58,9 +58,13 @@ export function KbDocListRow({
           {/* which library this is sits in the tab above, so the useful
               detail on the row is who put the document there */}
           · <Bidi>{doc.uploader_name ?? doc.municipality_name ?? t("program")}</Bidi> ·{" "}
-          <Bidi>
-            {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
-          </Bidi>
+          {/* The line may wrap, but not through the middle of a date: broken
+              after the month, "12 באוג׳" and "2026" read as two facts. */}
+          <span className="whitespace-nowrap">
+            <Bidi>
+              {format.dateTime(new Date(doc.created_at), { dateStyle: "medium" })}
+            </Bidi>
+          </span>
         </p>
       </Link>
       <StatusChip status={doc.status} />
