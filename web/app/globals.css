@@ -20,6 +20,10 @@
   --ring: hsl(180 41% 30%);
   --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 100%);
+  /* Reserved for state, never for a series: a toast says done or failed at a
+     glance, before anybody reads the words. */
+  --success: hsl(152 60% 30%);
+  --success-foreground: hsl(0 0% 100%);
   --sidebar: hsl(0 0% 100%);
   --sidebar-foreground: hsl(240 12% 30%);
   --sidebar-primary: hsl(180 41% 30%);
@@ -56,6 +60,8 @@
   --color-ring: var(--ring);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);

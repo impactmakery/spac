@@ -69,10 +69,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               role="status"
               className={cn(
                 "pointer-events-auto flex w-full max-w-md items-start gap-2.5 rounded-lg border p-3 shadow-lg",
+                // Colour first, words second: which of the two it is should be
+                // readable before the sentence is.
                 toast.variant === "error" &&
                   "border-destructive/30 bg-destructive text-destructive-foreground",
                 toast.variant === "success" &&
-                  "border-border bg-card text-foreground",
+                  "border-success/30 bg-success text-success-foreground",
                 toast.variant === "info" && "border-border bg-card text-foreground",
               )}
             >
