@@ -4,6 +4,7 @@ import { BarChart3, Download, FileText, MessageCircle, Users } from "lucide-reac
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { BarChart } from "@/components/charts/bar-chart";
+import { StackedBar } from "@/components/charts/stacked-bar";
 import { LineChart } from "@/components/charts/line-chart";
 import { StatTile } from "@/components/charts/stat-tile";
 import { PageHeader } from "@/components/page-header";
@@ -222,6 +223,36 @@ export function StatsDashboard({
                 days: data.range_days,
               })}
             </p>
+          </Card>
+
+          {/* Composition, not magnitude: the chart above answers "who does most
+              of X", this one answers "what is each one actually doing". Stacked
+              rather than a pie — there are more rows than a pie can carry, most
+              of them near zero, and the labels are long Hebrew names. */}
+          <Card className="mb-6 p-5">
+            <h2 className="mb-1 text-sm font-semibold text-foreground">
+              {t("activityMix")}
+            </h2>
+            <p className="mb-4 text-xs text-muted-foreground">
+              {t("activityMixHelp", { days: data.range_days })}
+            </p>
+            <StackedBar
+              label={t("activityMix")}
+              emptyLabel={t("empty")}
+              series={[
+                { key: "chat_messages", label: t("chatMessages"), color: "var(--chart-1)" },
+                { key: "board_items", label: t("boardItems"), color: "var(--chart-2)" },
+                { key: "files_uploaded", label: t("filesUploaded"), color: "var(--chart-3)" },
+              ]}
+              data={data.breakdown.map((b) => ({
+                label: b.name,
+                values: {
+                  chat_messages: b.kpis.chat_messages,
+                  board_items: b.kpis.board_items,
+                  files_uploaded: b.kpis.files_uploaded,
+                },
+              }))}
+            />
           </Card>
 
           {/* the table view is also the accessible fallback for the charts */}

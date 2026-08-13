@@ -121,7 +121,9 @@
     "emptyBody": "Usage indicators appear here once people start using the platform.",
     "tableView": "Data table",
     "comparing": "Compare by",
-    "comparingHelp": "{metric}, per {grouping}, over the last {days} days."
+    "comparingHelp": "{metric}, per {grouping}, over the last {days} days.",
+    "activityMix": "What the activity is made of",
+    "activityMixHelp": "Questions, items and files per row, over the last {days} days."
   },
   "chat": {
     "title": "Tomorrow Agent",

@@ -121,7 +121,9 @@
     "emptyBody": "כאשר המשתמשים יתחילו להשתמש במערכת, יופיעו כאן מדדי השימוש.",
     "tableView": "טבלת נתונים",
     "comparing": "השוואה לפי",
-    "comparingHelp": "{metric}, לכל {grouping}, ב-{days} הימים האחרונים."
+    "comparingHelp": "{metric}, לכל {grouping}, ב-{days} הימים האחרונים.",
+    "activityMix": "ממה מורכבת הפעילות",
+    "activityMixHelp": "שאלות, פריטים וקבצים בכל שורה, ב-{days} הימים האחרונים."
   },
   "chat": {
     "title": "סוכן מחר",
