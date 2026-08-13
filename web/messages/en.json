@@ -422,7 +422,9 @@
     "save": "Save",
     "empty": "No users yet",
     "emptyBody": "Invite the first user.",
-    "addDepartment": "Add department"
+    "addDepartment": "Add department",
+    "promoted": "{name} is now a Municipality Admin. They have been signed out and will need to sign in again.",
+    "demoted": "{name} is now a Department User. They have been signed out and will need to sign in again."
   },
   "profile": {
     "title": "Profile",

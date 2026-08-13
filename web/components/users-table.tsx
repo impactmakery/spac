@@ -314,7 +314,15 @@ export function UsersTable({
                             <Button
                               variant="ghost"
                               className="px-2 py-1"
-                              onClick={() => rowAction(() => promoteUser(row.id))}
+                              onClick={() =>
+                                // Changing the role bumps the token version,
+                                // so they are signed out on their next click.
+                                // Nobody would guess that from a button.
+                                rowAction(
+                                  () => promoteUser(row.id),
+                                  t("promoted", { name: row.name ?? row.email }),
+                                )
+                              }
                             >
                               {t("promote")}
                             </Button>
@@ -323,7 +331,12 @@ export function UsersTable({
                             <Button
                               variant="ghost"
                               className="px-2 py-1"
-                              onClick={() => rowAction(() => demoteUser(row.id))}
+                              onClick={() =>
+                                rowAction(
+                                  () => demoteUser(row.id),
+                                  t("demoted", { name: row.name ?? row.email }),
+                                )
+                              }
                             >
                               {t("demote")}
                             </Button>
