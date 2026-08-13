@@ -133,9 +133,12 @@ export function StatsDashboard({
       ) : (
         <>
           <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Both hints answer the same question people kept asking of these
+                two tiles: what exactly is being counted. */}
             <StatTile
               label={t("activeUsers")}
               value={data.kpis.active_users}
+              hint={t("activeUsersHint")}
               icon={<Users className="size-4" />}
             />
             <StatTile
@@ -143,7 +146,11 @@ export function StatsDashboard({
               value={data.kpis.chat_sessions}
               icon={<MessageCircle className="size-4" />}
             />
-            <StatTile label={t("chatMessages")} value={data.kpis.chat_messages} />
+            <StatTile
+              label={t("chatMessages")}
+              value={data.kpis.chat_messages}
+              hint={t("chatMessagesHint")}
+            />
             <StatTile
               label={t("unansweredPct")}
               value={`${data.kpis.unanswered_pct}%`}

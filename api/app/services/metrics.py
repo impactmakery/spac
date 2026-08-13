@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, union
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -62,8 +62,28 @@ def rollup_day(db: Session, day: date) -> dict[str, int]:
             user_q = user_q.where(User.municipality_id == municipality_id)
         user_ids = list(db.scalars(user_q))
 
-        login_q = select(func.count(func.distinct(UserLogin.user_id))).where(
-            UserLogin.created_at >= start, UserLogin.created_at < end
+        # Who did something, not who signed in.
+        #
+        # Sessions last thirty days, so counting logins meant somebody who
+        # signed in once and then used the assistant every day for a month
+        # appeared on exactly one of those days. The undercount grew with
+        # loyalty, which is backwards for a usage figure. Every source below
+        # carries a user id already; a person counts once however many of
+        # these they did.
+        def _actors(column, model, *conditions):
+            q = select(column.label("user_id")).where(
+                model.created_at >= start, model.created_at < end, *conditions
+            )
+            return q
+
+        active_q = union(
+            _actors(UserLogin.user_id, UserLogin),
+            _actors(Conversation.user_id, Conversation),
+            _actors(BoardItem.author_id, BoardItem),
+            _actors(BoardComment.author_id, BoardComment),
+        ).subquery()
+        login_q = select(func.count(func.distinct(active_q.c.user_id))).select_from(
+            active_q
         )
         convo_q = select(func.count(Conversation.id)).where(
             Conversation.created_at >= start, Conversation.created_at < end
@@ -97,7 +117,8 @@ def rollup_day(db: Session, day: date) -> dict[str, int]:
         )
 
         if municipality_id is not None or department_id is not None:
-            login_q = login_q.where(UserLogin.user_id.in_(user_ids))
+            # filter the union, not the login table it no longer selects from
+            login_q = login_q.where(active_q.c.user_id.in_(user_ids))
             convo_q = convo_q.where(Conversation.user_id.in_(user_ids))
             msg_q = msg_q.where(Conversation.user_id.in_(user_ids))
             unanswered_q = unanswered_q.where(UnansweredQuestion.user_id.in_(user_ids))

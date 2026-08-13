@@ -264,3 +264,75 @@ def test_weekly_digest_only_fires_monday_morning(
 
     freeze(real_datetime(2026, 8, 3, 11, 0, tzinfo=tz))  # later the same week
     assert post() == {"skipped": "already_ran"}
+
+
+# --- who counts as active ---------------------------------------------------
+#
+# It used to be whoever signed in. Sessions last thirty days, so somebody who
+# logged in once and then used the assistant every day for a month appeared on
+# exactly one of those days — the undercount grew with loyalty, which is
+# backwards for a usage figure.
+
+
+def _actor(db, email="actor@x.org"):
+    from app.core.security import hash_password
+    from app.models import User
+
+    user = User(email=email, role="department_user", status="active",
+                password_hash=hash_password("metrics-pw-1"), name="Actor")
+    db.add(user)
+    db.commit()
+    return user
+
+
+def test_someone_who_used_it_without_signing_in_today_still_counts(db):
+    """The case the old definition missed entirely."""
+    from datetime import UTC, datetime
+
+    from app.models import Conversation, DailyMetric
+    from app.services.metrics import rollup_day
+
+    user = _actor(db)
+    today = datetime.now(UTC).date()
+    db.add(Conversation(user_id=user.id, title="asked something"))
+    db.commit()
+
+    rollup_day(db, today)
+    row = db.query(DailyMetric).filter_by(
+        day=today, municipality_id=None, department_id=None
+    ).one()
+    assert row.active_users >= 1
+
+
+def test_someone_is_counted_once_however_much_they_do(db):
+    from datetime import UTC, datetime
+
+    from app.models import Conversation, DailyMetric
+    from app.services.metrics import rollup_day
+
+    user = _actor(db, "busy@x.org")
+    today = datetime.now(UTC).date()
+    db.add(Conversation(user_id=user.id, title="one"))
+    db.add(Conversation(user_id=user.id, title="two"))
+    db.commit()
+
+    rollup_day(db, today)
+    row = db.query(DailyMetric).filter_by(
+        day=today, municipality_id=None, department_id=None
+    ).one()
+    # two conversations, one person
+    assert row.active_users == 1
+
+
+def test_a_day_with_nobody_doing_anything_counts_nobody(db):
+    from datetime import UTC, datetime, timedelta
+
+    from app.models import DailyMetric
+    from app.services.metrics import rollup_day
+
+    quiet = datetime.now(UTC).date() - timedelta(days=400)
+    rollup_day(db, quiet)
+    row = db.query(DailyMetric).filter_by(
+        day=quiet, municipality_id=None, department_id=None
+    ).one()
+    assert row.active_users == 0
