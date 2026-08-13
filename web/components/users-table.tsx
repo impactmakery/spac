@@ -42,6 +42,7 @@ export function UsersTable({
   municipalities: MunicipalityRow[];
 }) {
   const t = useTranslations("usersAdmin");
+  const roleName = useTranslations("roles");
   const confirm = useConfirm();
   const tc = useTranslations("common");
   const format = useFormatter();
@@ -200,8 +201,15 @@ export function UsersTable({
             </Select>
             <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
               <option value="">{t("allRoles")}</option>
-              <option value="municipality_admin">{t("promote")}</option>
-              <option value="department_user">{t("demote")}</option>
+              {/* Named as roles. These were labelled with the promote and
+                  demote buttons — "Promote to municipality admin" as a filter
+                  option reads as an action, not as who you want to see. All
+                  three, because this list holds all three. */}
+              <option value="system_admin">{roleName("system_admin")}</option>
+              <option value="municipality_admin">
+                {roleName("municipality_admin")}
+              </option>
+              <option value="department_user">{roleName("department_user")}</option>
             </Select>
           </>
         )}
@@ -231,6 +239,7 @@ export function UsersTable({
                 {scope === "system" && (
                   <th className="p-3 text-start font-medium">{t("municipality")}</th>
                 )}
+                <th className="p-3 text-start font-medium">{t("role")}</th>
                 <th className="p-3 text-start font-medium">{t("departments")}</th>
                 <th className="p-3 text-start font-medium">{t("status")}</th>
                 <th className="p-3 text-start font-medium">{t("lastLogin")}</th>
@@ -247,6 +256,7 @@ export function UsersTable({
                   {scope === "system" && (
                     <td className="p-3">{row.municipality_name ?? "—"}</td>
                   )}
+                  <td className="p-3 text-muted-foreground">{roleName(row.role)}</td>
                   <td className="p-3">
                     {row.has_zero_departments ? (
                       <Badge tone="destructive">{t("noDepartments")}</Badge>
