@@ -202,7 +202,7 @@
     "typePrompt": "Text",
     "promptPlaceholder": "Paste a prompt, agent instructions, or any text worth sharing…",
     "promptLinkOptional": "Link to the agent (optional)",
-    "fileHint": "Any file type, up to 25 MB.",
+    "fileHint": "Any file type, up to {size}.",
     "errPromptLength": "The prompt is too long.",
     "promptHeading": "Text",
     "copyPrompt": "Copy",
@@ -307,7 +307,8 @@
     "uploadingFailed": "{count, plural, one {# file could not be uploaded} other {# files could not be uploaded}}",
     "indexingInProgress": "{count, plural, one {# document is still being read} other {# documents are still being read}} — this page updates itself.",
     "uploadFailed": "could not be sent — try again, or upload it in a smaller file",
-    "tooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly."
+    "tooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly.",
+    "uploadHint": "PDF, DOCX, PPTX or XLSX, up to {size}."
   },
   "municipalities": {
     "title": "Municipalities",

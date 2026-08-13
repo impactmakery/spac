@@ -202,7 +202,7 @@
     "typePrompt": "טקסט",
     "promptPlaceholder": "הדביקו כאן פרומפט, הוראות לסוכן, או כל טקסט ששווה לשתף…",
     "promptLinkOptional": "קישור לסוכן (לא חובה)",
-    "fileHint": "כל סוג קובץ, עד 25 מ\"ב.",
+    "fileHint": "כל סוג קובץ, עד {size}.",
     "errPromptLength": "הפרומפט ארוך מדי.",
     "promptHeading": "טקסט",
     "copyPrompt": "העתקה",
@@ -307,7 +307,8 @@
     "uploadingFailed": "{count, plural, one {קובץ אחד לא הועלה} other {# קבצים לא הועלו}}",
     "indexingInProgress": "{count, plural, one {מסמך אחד עדיין נקרא} other {# מסמכים עדיין נקראים}} — הדף מתעדכן מעצמו.",
     "uploadFailed": "לא ניתן היה לשלוח — נסו שוב, או העלו קובץ קטן יותר",
-    "tooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות."
+    "tooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות.",
+    "uploadHint": "PDF, DOCX, PPTX או XLSX, עד {size}."
   },
   "municipalities": {
     "title": "ניהול רשויות",

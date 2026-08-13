@@ -17,10 +17,10 @@ import { Bidi, Button, Card, FieldError, Input, cn } from "@/components/ui";
 import { Linkify } from "@/components/linkify";
 import { useRouter } from "@/i18n/navigation";
 import type { DeptFile, DeptPost } from "@/lib/board-types";
-import { formatBytes } from "@/lib/format";
+import { formatBytes, isolated } from "@/lib/format";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
-import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { attempt, MAX_SEND_BYTES, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 
 export function DepartmentClient({
   deptId,
@@ -129,10 +129,15 @@ export function DepartmentClient({
                 className="hidden"
                 onChange={(e) => onUpload(e.target.files)}
               />
-              <Button disabled={busy} onClick={() => fileRef.current?.click()}>
-                <Upload className="size-4" />
-                {t("upload")}
-              </Button>
+              <span className="flex flex-col items-end gap-1">
+                <Button disabled={busy} onClick={() => fileRef.current?.click()}>
+                  <Upload className="size-4" />
+                  {t("upload")}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {tk("uploadHint", { size: isolated(formatBytes(MAX_SEND_BYTES)) })}
+                </span>
+              </span>
             </>
           ) : undefined
         }

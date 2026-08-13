@@ -10,8 +10,8 @@ import { useToast } from "@/components/toast";
 import { FileDrop } from "@/components/board/file-drop";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import type { BoardKind, CategoryRef } from "@/lib/board-types";
-import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
-import { formatBytes } from "@/lib/format";
+import { attempt, MAX_SEND_BYTES, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { formatBytes, isolated } from "@/lib/format";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_PROMPT = 20000;
@@ -388,7 +388,7 @@ export function PublishDialog({
           )}
           {mode === "file" && (
             /* No type filter: any file may be shared. */
-            <FileDrop file={file} onFile={setFile} hint={t("fileHint")} />
+            <FileDrop file={file} onFile={setFile} hint={t("fileHint", { size: isolated(formatBytes(MAX_SEND_BYTES)) })} />
           )}
           {mode === "prompt" && (
             <div className="space-y-2">

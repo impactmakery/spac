@@ -13,8 +13,8 @@ import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
 import { type Library, libraryTabs, type MunicipalityRef, sameLibrary } from "@/lib/libraries";
 import type { Role } from "@/lib/roles";
-import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
-import { formatBytes } from "@/lib/format";
+import { attempt, MAX_SEND_BYTES, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { formatBytes, isolated } from "@/lib/format";
 
 // Often enough to feel live, rarely enough that a library left open overnight
 // is not making a request every second.
@@ -175,10 +175,16 @@ export function KnowledgeClient({
                   e.target.value = "";
                 }}
               />
-              <Button disabled={busy} onClick={() => fileRef.current?.click()}>
-                <Upload className="size-4" />
-                {t("upload")}
-              </Button>
+              {/* The limit where the file is chosen, not after it fails. */}
+              <span className="flex flex-col items-end gap-1">
+                <Button disabled={busy} onClick={() => fileRef.current?.click()}>
+                  <Upload className="size-4" />
+                  {t("upload")}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  {t("uploadHint", { size: isolated(formatBytes(MAX_SEND_BYTES)) })}
+                </span>
+              </span>
             </>
           ) : undefined
         }
