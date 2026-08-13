@@ -174,9 +174,11 @@ export function UsersTable({
       )}
 
       <div className="mb-4 flex flex-wrap gap-3">
+        {/* Search takes the slack so the row ends where the table does, rather
+            than stopping short of it. Same arrangement as the board. */}
         <Input
           placeholder={t("searchPlaceholder")}
-          className="max-w-xs"
+          className="min-w-64 flex-1"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
