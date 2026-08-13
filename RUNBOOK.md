@@ -44,14 +44,34 @@ so a retry or a double-fire is harmless.
 | Endpoint | Schedule | Does |
 |---|---|---|
 | `POST /api/cron/metrics-rollup` | nightly 02:00 | rolls usage into `daily_metrics` |
-| `POST /api/cron/archive-purge` | nightly 03:00 | deletes archived departments past their retention |
+| `POST /api/cron/archive-purge` | nightly 03:00 | deletes archived departments past their retention, and sweeps chat history, retrieval debug rows and recorded errors past 90 days |
 | `POST /api/cron/weekly-digest` | Mondays 08:00 Asia/Jerusalem | emails the digest to opted-in users |
 
 Each run records a row in `cron_runs`. If a dashboard looks stale, check there first —
 a missing row means the scheduler never fired, a present row with an error means the job
-did.
+did. Failed runs also appear on `/system/errors`.
+
+The dashboard reads the stored rollups, not live counts, so changing what a metric means
+only affects days rolled up afterwards. To make a whole series mean one thing:
+
+```bash
+railway run --service api python scripts/rebuild_rollups.py 90
+```
+
+`rollup_day` deletes and rebuilds the day it is given, so running this twice is the same
+as running it once.
 
 ## Common situations
+
+### Start at /system/errors
+
+A system admin's **תקלות / Errors** page lists everything the platform could not do:
+unhandled server errors with their tracebacks, documents that would not index, and cron
+runs that failed. Container logs on Railway last seven days; these rows last 90, so a
+report about last week is answerable from the page rather than from memory.
+
+Every failed document has a **Try again** button, which puts it back in the ingestion
+queue — the first thing to reach for, since most indexing failures are transient.
 
 ### A document is stuck on "pending"
 
