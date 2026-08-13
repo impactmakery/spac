@@ -45,8 +45,17 @@ export function navItems(
   if (isKnowledgeAdmin(role)) {
     items.splice(1, 0, { key: "knowledge", href: "/knowledge", icon: "knowledge" });
   }
+  // A system admin has no municipality of their own, but answers for all of
+  // them — the page gives them a picker instead of one board, so "my
+  // municipality" would be the wrong name for it.
   if (opts.hasMunicipality) {
     items.push({ key: "municipality", href: "/municipality", icon: "municipality" });
+  } else if (role === "system_admin") {
+    items.push({
+      key: "municipalityBoards",
+      href: "/municipality",
+      icon: "municipality",
+    });
   }
   // Department areas are built and working but hidden for now, pending a
   // decision on whether they are part of the product. The pages and their API

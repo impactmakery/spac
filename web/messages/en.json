@@ -91,7 +91,8 @@
     "systemStats": "Usage",
     "signOut": "Sign out",
     "openMenu": "Open menu",
-    "systemErrors": "Errors"
+    "systemErrors": "Errors",
+    "municipalityBoards": "Municipality boards"
   },
   "stats": {
     "title": "Usage",
@@ -242,7 +243,10 @@
     "unacceptAnswer": "Remove the mark",
     "addTimeOptional": "Add a time (optional)",
     "newCategoryPlaceholder": "Name the category",
-    "categoryExists": "That category already exists."
+    "categoryExists": "That category already exists.",
+    "whichMunicipality": "Municipality",
+    "municipalityReadOnly": "This municipality's own board. You are reading it, not posting to it.",
+    "emptyBodyReadOnly": "Nothing has been posted to this board yet."
   },
   "departmentArea": {
     "filesTab": "Files",

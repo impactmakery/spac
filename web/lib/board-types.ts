@@ -36,6 +36,9 @@ export interface BoardItemRow {
   prompt_text: string | null;
   filename: string | null;
   size_bytes: number | null;
+  /** Set only when the attachment is an image, so it can be shown rather than
+   *  offered for download. Signed and short-lived. */
+  image_url: string | null;
   like_count: number;
   comment_count: number;
   liked_by_me: boolean;

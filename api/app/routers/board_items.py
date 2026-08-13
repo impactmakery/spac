@@ -23,7 +23,7 @@ from app.models import (
 from app.services.audit import record_audit
 from app.services.ingestion import enqueue
 from app.services.storage import get_storage
-from app.services.uploads import validate_upload
+from app.services.uploads import is_image, validate_upload
 
 router = APIRouter(prefix="/api/board-items", tags=["boards"])
 
@@ -73,6 +73,10 @@ class BoardItemOut(BaseModel):
     prompt_text: str | None
     filename: str | None
     size_bytes: int | None
+    # Present only when the attachment is an image, so the board can show it
+    # rather than offer it for download. Signed and short-lived like every
+    # other file URL here — permission was already decided to reach this row.
+    image_url: str | None
     like_count: int
     comment_count: int
     liked_by_me: bool
@@ -170,6 +174,43 @@ def _visible_or_404(item: BoardItem, user: User) -> None:
             raise HTTPException(status_code=404, detail="not_found")
 
 
+def _board_municipality(user: User, requested: str | None) -> uuid.UUID:
+    """Whose municipality board is being read.
+
+    A system admin may name one, because they already answer for every
+    municipality and can already open any single post on one. Everyone else
+    gets their own, and naming somebody else's is not a different answer — it
+    is the same 404 as a municipality that does not exist, so no one learns
+    which ids are real.
+    """
+    if user.role == "system_admin":
+        if requested is None:
+            raise HTTPException(status_code=404, detail="not_found")
+        try:
+            return uuid.UUID(requested)
+        except ValueError:
+            raise HTTPException(status_code=404, detail="not_found") from None
+    if user.municipality_id is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    if requested is not None and requested != str(user.municipality_id):
+        raise HTTPException(status_code=404, detail="not_found")
+    return user.municipality_id
+
+
+def _image_url(item: BoardItem) -> str | None:
+    """A URL for the attachment only when it is an image.
+
+    Restricted to the image types, not merely to what may be shown inline: a
+    PDF is inline-safe and still has no business being stretched across a card.
+    SVG is not in that set at all, deliberately — it carries script.
+    """
+    if not item.storage_key or not is_image(item.content_type):
+        return None
+    return get_storage().download_url(
+        item.storage_key, item.filename or "image", content_type=item.content_type
+    )
+
+
 def _out(db: Session, item: BoardItem, user: User) -> BoardItemOut:
     cat = db.get(Category, item.category_id)
     like_count = (
@@ -203,6 +244,7 @@ def _out(db: Session, item: BoardItem, user: User) -> BoardItemOut:
         prompt_text=item.prompt_text,
         filename=item.filename,
         size_bytes=item.size_bytes,
+        image_url=_image_url(item),
         like_count=like_count,
         comment_count=comment_count,
         liked_by_me=liked,
@@ -219,16 +261,16 @@ def list_items(
     category_id: str | None = None,
     sort: str = "newest",
     page: int = 0,
+    municipality_id: str | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> BoardPage:
     q = select(BoardItem)
     if scope == "municipality":
-        if user.municipality_id is None:
-            raise HTTPException(status_code=404, detail="not_found")
+        target = _board_municipality(user, municipality_id)
         q = q.where(
             BoardItem.scope == "municipality",
-            BoardItem.municipality_id == user.municipality_id,
+            BoardItem.municipality_id == target,
         )
     else:
         q = q.where(BoardItem.scope == "global")

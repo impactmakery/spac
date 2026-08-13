@@ -79,6 +79,20 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
         </div>
       </div>
       <Link href={`/board/${item.id}`} className="mt-3 block">
+        {/* A poster or a photograph is the post. Showing it beats a line of
+            text saying a file is attached — but it stays a fixed band so a
+            tall image cannot push a row of cards out of line. */}
+        {item.image_url && (
+          // Signed, short-lived URLs on the storage host: next/image would need
+          // every bucket allow-listed and would cache what expires.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.image_url}
+            alt=""
+            loading="lazy"
+            className="mb-3 h-40 w-full rounded-lg bg-muted object-cover"
+          />
+        )}
         <h3 className="font-semibold text-foreground hover:underline">{item.title}</h3>
         {item.description && (
           <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
@@ -95,7 +109,7 @@ export function ItemCard({ item }: { item: BoardItemRow }) {
           {t("openLink")}
         </span>
       )}
-      {item.filename && (
+      {item.filename && !item.image_url && (
         <span className="mt-3 inline-flex items-center gap-1.5 text-sm text-primary">
           <FileText className="size-4" />
           {item.filename}

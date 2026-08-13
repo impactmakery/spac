@@ -34,6 +34,7 @@ import type {
   CategoryRef,
 } from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
+import { fileFormat, stem } from "@/lib/filename";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
 
@@ -207,6 +208,20 @@ export function ItemClient({
           </div>
         )}
 
+        {/* Shown at its own proportions, capped so a tall image does not push
+            the comments off the screen. The download button below still
+            offers the original. */}
+        {item.image_url && (
+          // Signed, short-lived URLs on the storage host: next/image would need
+          // every bucket allow-listed and would cache what expires.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.image_url}
+            alt={item.filename ?? ""}
+            className="mt-4 max-h-[70vh] w-auto max-w-full rounded-lg border border-border bg-muted"
+          />
+        )}
+
         <div className="mt-4 flex flex-wrap gap-2">
           {item.link_url && (
             <Button variant="secondary" onClick={() => setExternalOpen(true)}>
@@ -220,8 +235,13 @@ export function ItemClient({
               onClick={() => window.open(downloadUrl, "_blank", "noopener")}
             >
               <Download className="size-4" />
-              {item.filename}
-              {item.size_bytes != null && ` (${formatBytes(item.size_bytes)})`}
+              {/* Split, because "כרזה קיץ.png" in one run lays out as
+                  "png.כרזה קיץ" — the extension jumps to the wrong end. */}
+              <Bidi>{stem(item.filename ?? "")}</Bidi>
+              {fileFormat(item.filename ?? "") && (
+                <Bidi>{fileFormat(item.filename ?? "")}</Bidi>
+              )}
+              {item.size_bytes != null && <Bidi>{formatBytes(item.size_bytes)}</Bidi>}
             </Button>
           )}
         </div>

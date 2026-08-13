@@ -91,7 +91,8 @@
     "systemStats": "מדדי שימוש",
     "signOut": "התנתקות",
     "openMenu": "פתיחת תפריט",
-    "systemErrors": "תקלות"
+    "systemErrors": "תקלות",
+    "municipalityBoards": "לוחות הרשויות"
   },
   "stats": {
     "title": "מדדי שימוש",
@@ -242,7 +243,10 @@
     "unacceptAnswer": "הסירו את הסימון",
     "addTimeOptional": "הוסיפו שעה (לא חובה)",
     "newCategoryPlaceholder": "שם הקטגוריה",
-    "categoryExists": "הקטגוריה הזו כבר קיימת."
+    "categoryExists": "הקטגוריה הזו כבר קיימת.",
+    "whichMunicipality": "רשות",
+    "municipalityReadOnly": "הלוח הפנימי של הרשות. אתם קוראים אותו, לא מפרסמים בו.",
+    "emptyBodyReadOnly": "עדיין לא פורסם דבר בלוח הזה."
   },
   "departmentArea": {
     "filesTab": "קבצים",

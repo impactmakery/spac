@@ -31,6 +31,9 @@ export function BoardPage({
   search,
   categoryId,
   sort,
+  municipalities,
+  municipalityId,
+  canPublish = true,
 }: {
   scope: "global" | "municipality";
   title: string;
@@ -42,6 +45,13 @@ export function BoardPage({
   search: string;
   categoryId: string;
   sort: string;
+  /** Only a system admin gets these: they belong to no municipality, so which
+   *  board they are reading is a choice rather than a fact about them. */
+  municipalities?: { id: string; name: string }[];
+  municipalityId?: string;
+  /** False on somebody else's board: a system admin is reading it, and a
+   *  Publish button with nowhere of their own to publish to only misleads. */
+  canPublish?: boolean;
 }) {
   const t = useTranslations("board");
   const locale = useLocale();
@@ -65,13 +75,28 @@ export function BoardPage({
   // Finished events fall back among the rest — still findable, no longer news.
   const ordered = useMemo(() => withEventsFirst(items), [items]);
 
-  function navigate(next: Partial<{ search: string; category: string; sort: string; page: string }>) {
+  function navigate(
+    next: Partial<{
+      search: string;
+      category: string;
+      sort: string;
+      page: string;
+      municipality: string;
+    }>,
+  ) {
     const params = new URLSearchParams();
-    const merged = { search, category: categoryId, sort, ...next };
+    const merged = {
+      search,
+      category: categoryId,
+      sort,
+      municipality: municipalityId ?? "",
+      ...next,
+    };
     if (merged.search) params.set("search", merged.search);
     if (merged.category) params.set("category", merged.category);
     if (merged.sort && merged.sort !== "newest") params.set("sort", merged.sort);
     if (merged.page) params.set("page", merged.page);
+    if (merged.municipality) params.set("municipality", merged.municipality);
     const qs = params.toString();
     router.push(qs ? `${basePath}?${qs}` : basePath);
   }
@@ -82,14 +107,30 @@ export function BoardPage({
         title={title}
         subtitle={subtitle}
         action={
-          <Button onClick={() => setOpen(true)}>
-            <Plus className="size-4" />
-            {t("publish")}
-          </Button>
+          canPublish ? (
+            <Button onClick={() => setOpen(true)}>
+              <Plus className="size-4" />
+              {t("publish")}
+            </Button>
+          ) : undefined
         }
       />
 
       <div className="mb-6 flex flex-wrap gap-3">
+        {/* First in the row, because it decides what the other filters filter. */}
+        {municipalities && municipalities.length > 0 && (
+          <Select
+            aria-label={t("whichMunicipality")}
+            value={municipalityId ?? ""}
+            onChange={(e) => navigate({ municipality: e.target.value, page: "" })}
+          >
+            {municipalities.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+              </option>
+            ))}
+          </Select>
+        )}
         <form
           className="relative min-w-64 flex-1"
           onSubmit={(e) => {
@@ -157,11 +198,17 @@ export function BoardPage({
             <LayoutGrid className="size-7" />
           </span>
           <p className="mt-4 text-lg font-semibold text-foreground">{t("empty")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">{t("emptyBody")}</p>
-          <Button className="mt-4" onClick={() => setOpen(true)}>
-            <Plus className="size-4" />
-            {t("publish")}
-          </Button>
+          {/* "Publish the first item" is an odd thing to read on a board you
+              are only visiting. */}
+          <p className="mt-1 text-sm text-muted-foreground">
+            {canPublish ? t("emptyBody") : t("emptyBodyReadOnly")}
+          </p>
+          {canPublish && (
+            <Button className="mt-4" onClick={() => setOpen(true)}>
+              <Plus className="size-4" />
+              {t("publish")}
+            </Button>
+          )}
         </div>
       ) : (
         <>

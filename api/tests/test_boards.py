@@ -711,3 +711,136 @@ def test_deleting_a_post_removes_its_comments_from_the_assistant(client, db, wor
 
     client.delete(f"/api/board-items/{item_id}", headers=headers)
     assert db.query(Chunk).filter(Chunk.source_type == "comment").count() == 0
+
+
+# --- images -----------------------------------------------------------------
+
+# The smallest valid PNG: one transparent pixel.
+ONE_PIXEL_PNG = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06"
+    b"\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05"
+    b"\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def publish_image(client, headers, world, *, filename="poster.png",
+                  content=ONE_PIXEL_PNG, content_type="image/png"):
+    return client.post(
+        "/api/board-items",
+        data={
+            "title": "Summer programme poster",
+            "category_id": str(world["cat"].id),
+            "destination": "global",
+        },
+        files={"file": (filename, content, content_type)},
+        headers=headers,
+    )
+
+
+def test_an_image_comes_back_ready_to_show(client, files_dir, world):
+    """Otherwise a poster is a download button with a filename on it."""
+    headers = auth(client, "u1@x.org")
+    r = publish_image(client, headers, world)
+    assert r.status_code == 201, r.text
+    assert r.json()["image_url"]
+
+    # and in the list, so a card can show it without opening the post
+    page = client.get("/api/board-items?scope=global", headers=headers).json()
+    listed = [i for i in page["items"] if i["id"] == r.json()["id"]]
+    assert listed and listed[0]["image_url"]
+
+
+def test_a_document_is_not_offered_as_an_image(client, files_dir, world):
+    """A PDF may be shown in a viewer; it has no business stretched across a
+    card."""
+    headers = auth(client, "u1@x.org")
+    r = client.post(
+        "/api/board-items",
+        data={
+            "title": "Procurement rules",
+            "category_id": str(world["cat"].id),
+            "destination": "global",
+        },
+        files={"file": ("rules.pdf", b"%PDF-1.4 rules", "application/pdf")},
+        headers=headers,
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["image_url"] is None
+
+
+def test_a_post_with_no_file_has_no_image(client, world):
+    r = publish_link(client, auth(client, "u1@x.org"), world)
+    assert r.json()["image_url"] is None
+
+
+def test_an_svg_is_never_shown_as_an_image(client, files_dir, world):
+    """It can carry script. It uploads like anything else and downloads like
+    anything else, but it is never dropped into the page."""
+    headers = auth(client, "u1@x.org")
+    r = publish_image(
+        client, headers, world,
+        filename="logo.svg",
+        content=b"<svg xmlns='http://www.w3.org/2000/svg'><script>alert(1)</script></svg>",
+        content_type="image/svg+xml",
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["image_url"] is None
+
+
+# --- a system admin reading a municipality board ----------------------------
+
+
+def test_a_system_admin_can_read_one_municipality_board(client, world):
+    """They could already open any single post on one; the list is the part
+    that was missing."""
+    r = publish_link(client, auth(client, "u1@x.org"), world,
+                     title="City One only", destination="municipality")
+    assert r.status_code == 201
+
+    sys_headers = auth(client, "sys@x.org")
+    page = client.get(
+        f"/api/board-items?scope=municipality&municipality_id={world['m1'].id}",
+        headers=sys_headers,
+    ).json()
+    assert [i["title"] for i in page["items"]] == ["City One only"]
+
+    # and the other municipality's board is genuinely a different board
+    other = client.get(
+        f"/api/board-items?scope=municipality&municipality_id={world['m2'].id}",
+        headers=sys_headers,
+    ).json()
+    assert other["items"] == []
+
+
+def test_a_system_admin_must_say_which_municipality(client, world):
+    """They have none of their own, so there is no sensible default."""
+    r = client.get("/api/board-items?scope=municipality",
+                   headers=auth(client, "sys@x.org"))
+    assert r.status_code == 404
+
+
+def test_naming_somebody_elses_municipality_changes_nothing(client, world):
+    """Same 404 as a municipality that does not exist, so no one learns which
+    ids are real."""
+    r = client.get(
+        f"/api/board-items?scope=municipality&municipality_id={world['m2'].id}",
+        headers=auth(client, "u1@x.org"),
+    )
+    assert r.status_code == 404
+
+
+def test_naming_your_own_municipality_is_allowed(client, world):
+    """The web sends it for everyone rather than branching on the role."""
+    r = client.get(
+        f"/api/board-items?scope=municipality&municipality_id={world['m1'].id}",
+        headers=auth(client, "u1@x.org"),
+    )
+    assert r.status_code == 200
+
+
+def test_a_made_up_municipality_id_is_a_404_not_a_crash(client, world):
+    r = client.get(
+        "/api/board-items?scope=municipality&municipality_id=not-a-uuid",
+        headers=auth(client, "sys@x.org"),
+    )
+    assert r.status_code == 404

@@ -33,16 +33,19 @@ CONTENT_TYPES = {
     "md": "text/markdown",
 }
 
-# Rendered in the browser. Deliberately excludes SVG and anything HTML-ish:
-# both can carry script, and same-origin script is a session-stealing bug, not
-# a file-type preference.
-INLINE_SAFE = {
-    "application/pdf",
+# Shown as a picture: dropped straight into a page, no viewer around it.
+# SVG is not here and is not in INLINE_SAFE either — it can carry script.
+IMAGE_TYPES = {
     "image/png",
     "image/jpeg",
     "image/webp",
     "image/gif",
 }
+
+# Rendered in the browser. Deliberately excludes SVG and anything HTML-ish:
+# both can carry script, and same-origin script is a session-stealing bug, not
+# a file-type preference.
+INLINE_SAFE = {"application/pdf", *IMAGE_TYPES}
 
 # Text can be read for search; these are the ones the extractor understands.
 EXTRACTABLE = {"pdf", "docx", "pptx", "xlsx", "png", "jpg", "jpeg", "webp", "gif",
@@ -104,6 +107,13 @@ def _check_magic(ext: str, content: bytes) -> None:
 
 def is_inline_safe(content_type: str | None) -> bool:
     return content_type in INLINE_SAFE
+
+
+def is_image(content_type: str | None) -> bool:
+    """Narrower than inline-safe on purpose: a PDF may be shown in a viewer,
+    but only these can be dropped into a page as a picture. SVG is absent from
+    INLINE_SAFE to begin with, because it can carry script."""
+    return content_type in IMAGE_TYPES
 
 
 def is_extractable(ext: str | None) -> bool:

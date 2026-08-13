@@ -10,15 +10,40 @@ export default async function MunicipalityBoardPage({
   searchParams,
 }: PageProps<"/[locale]/municipality">) {
   const session = await auth();
-  if (!session?.user.municipalityId) notFound();
+  if (!session) notFound();
+
+  // A system admin belongs to no municipality, so which board they are reading
+  // is a choice rather than a fact about them — they get every municipality and
+  // a picker. Everyone else gets their own and nothing to decide.
+  const isSystemAdmin = session.user.role === "system_admin";
+  if (!isSystemAdmin && !session.user.municipalityId) notFound();
 
   const sp = await searchParams;
   const search = typeof sp.search === "string" ? sp.search : "";
   const category = typeof sp.category === "string" ? sp.category : "";
   const sort = typeof sp.sort === "string" ? sp.sort : "newest";
   const page = typeof sp.page === "string" ? sp.page : "0";
+  const chosen = typeof sp.municipality === "string" ? sp.municipality : "";
 
-  const query = new URLSearchParams({ scope: "municipality", sort, page });
+  const all = isSystemAdmin
+    ? await apiFetch<MunicipalityRow[]>("/api/municipalities")
+    : [];
+  const active = all.filter((m) => m.status !== "inactive");
+  // Landing on a picker with nothing picked shows an empty board and reads as
+  // "there is nothing here", so the first municipality stands in until one is
+  // chosen.
+  const municipalityId = isSystemAdmin
+    ? (active.find((m) => m.id === chosen)?.id ?? active[0]?.id ?? "")
+    : session.user.municipalityId!;
+
+  if (isSystemAdmin && !municipalityId) notFound();
+
+  const query = new URLSearchParams({
+    scope: "municipality",
+    sort,
+    page,
+    municipality_id: municipalityId,
+  });
   if (search) query.set("search", search);
   if (category) query.set("category_id", category);
 
@@ -28,25 +53,26 @@ export default async function MunicipalityBoardPage({
     apiFetch<CategoryRef[]>("/api/categories"),
   ]);
 
-  let municipalityName = data.items[0]?.author.municipality_name ?? "";
-  if (!municipalityName && session.user.role === "system_admin") {
-    const list = await apiFetch<MunicipalityRow[]>("/api/municipalities");
-    municipalityName =
-      list.find((m) => m.id === session.user.municipalityId)?.name ?? "";
-  }
+  const municipalityName = isSystemAdmin
+    ? (active.find((m) => m.id === municipalityId)?.name ?? "")
+    : (data.items[0]?.author.municipality_name ?? "");
 
   return (
     <BoardPage
       scope="municipality"
       title={t("municipalityTitle", { name: municipalityName })}
-      subtitle={t("municipalitySubtitle")}
+      subtitle={isSystemAdmin ? t("municipalityReadOnly") : t("municipalitySubtitle")}
       items={data.items}
       hasMore={data.has_more}
       categories={categories}
-      canChooseDestination
+      // A system admin has no municipality of their own to publish to.
+      canChooseDestination={!isSystemAdmin}
+      canPublish={!isSystemAdmin}
       search={search}
       categoryId={category}
       sort={sort}
+      municipalities={isSystemAdmin ? active : undefined}
+      municipalityId={isSystemAdmin ? municipalityId : undefined}
     />
   );
 }

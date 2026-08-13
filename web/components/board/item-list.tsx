@@ -10,6 +10,19 @@ import type { BoardItemRow } from "@/lib/board-types";
 
 function KindIcon({ item }: { item: BoardItemRow }) {
   const className = "size-4 shrink-0 text-muted-foreground";
+  // A thumbnail in the same slot: it fits inside the row's existing height,
+  // and it says far more than a generic file icon does.
+  if (item.image_url)
+    return (
+      // Signed, short-lived URL on the storage host.
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={item.image_url}
+        alt=""
+        loading="lazy"
+        className="size-8 shrink-0 rounded bg-muted object-cover"
+      />
+    );
   if (item.filename) return <FileText className={className} />;
   if (item.prompt_text) return <Sparkles className={className} />;
   if (item.link_url) return <Link2 className={className} />;

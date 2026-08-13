@@ -7,6 +7,7 @@ R2 presigned GETs, or HMAC-signed paths served by /api/files/{key} locally.
 import hashlib
 import hmac
 import time
+from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 from urllib.parse import quote
@@ -77,28 +78,40 @@ class LocalDiskProvider:
         return url
 
 
+@lru_cache(maxsize=1)
+def _r2_client():
+    """Built once and kept.
+
+    Constructing a boto3 client loads botocore's service model, which is tens
+    of milliseconds. That was invisible while a URL was signed once per page;
+    a board listing signs one per image, and the cost would be the whole
+    page's. boto3 clients are safe to share between threads.
+    """
+    import boto3
+    from botocore.config import Config
+
+    s = get_settings()
+    return boto3.client(
+        "s3",
+        endpoint_url=s.r2_endpoint_url,
+        aws_access_key_id=s.r2_access_key_id,
+        aws_secret_access_key=s.r2_secret_access_key,
+        region_name="auto",
+        # The worker downloads every file it indexes through here, one at a
+        # time. A stalled socket with no read timeout stops the queue for
+        # good: the worker never loops again, so even the stalled-job
+        # recovery cannot run. Better to fail and let the queue retry.
+        config=Config(
+            connect_timeout=10,
+            read_timeout=120,
+            retries={"max_attempts": 3, "mode": "standard"},
+        ),
+    )
+
+
 class R2Provider:
     def _client(self):
-        import boto3
-        from botocore.config import Config
-
-        s = get_settings()
-        return boto3.client(
-            "s3",
-            endpoint_url=s.r2_endpoint_url,
-            aws_access_key_id=s.r2_access_key_id,
-            aws_secret_access_key=s.r2_secret_access_key,
-            region_name="auto",
-            # The worker downloads every file it indexes through here, one at a
-            # time. A stalled socket with no read timeout stops the queue for
-            # good: the worker never loops again, so even the stalled-job
-            # recovery cannot run. Better to fail and let the queue retry.
-            config=Config(
-                connect_timeout=10,
-                read_timeout=120,
-                retries={"max_attempts": 3, "mode": "standard"},
-            ),
-        )
+        return _r2_client()
 
     def put(self, key: str, data: bytes, content_type: str) -> None:
         self._client().put_object(

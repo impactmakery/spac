@@ -52,12 +52,14 @@ describe("navItems", () => {
     expect(hrefs).toContain("/admin/stats");
   });
 
-  it("system admin has no municipality link and gets the system screens", () => {
+  it("system admin reaches the municipality boards and the system screens", () => {
     const hrefs = navItems("system_admin", {
       hasMunicipality: false,
       departments: [],
     }).map((i) => i.href);
-    expect(hrefs).not.toContain("/municipality");
+    // They belong to no municipality but answer for all of them, so the page
+    // gives them a picker rather than one board.
+    expect(hrefs).toContain("/municipality");
     expect(hrefs).toEqual(
       expect.arrayContaining([
         "/system/municipalities",
