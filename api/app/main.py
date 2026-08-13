@@ -2,7 +2,8 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -22,6 +23,7 @@ from app.routers import invitations as invitations_router
 from app.routers import kb_documents as kb_documents_router
 from app.routers import municipalities as municipalities_router
 from app.routers import stats as stats_router
+from app.routers import system_errors as system_errors_router
 from app.routers import users as users_router
 from app.services.bootstrap import bootstrap_first_admin
 
@@ -47,6 +49,34 @@ def create_app() -> FastAPI:
         yield
 
     app = FastAPI(title="Tomorrow Agent Hub API", lifespan=lifespan)
+
+    @app.exception_handler(Exception)
+    async def unhandled(request: Request, exc: Exception) -> JSONResponse:
+        """Record what broke, then answer as before.
+
+        Without this the only trace of a server error was a line on stdout,
+        gone in seven days and readable by nobody who is not deploying. The
+        caller still gets the same opaque 500 — the detail belongs in the
+        errors page, not in a response body.
+        """
+        from app.services.error_log import record_error
+
+        user_id = getattr(getattr(request.state, "user", None), "id", None)
+        try:
+            with next(get_db_context()) as db:
+                record_error(
+                    db,
+                    method=request.method,
+                    path=request.url.path,
+                    status_code=500,
+                    exc=exc,
+                    user_id=user_id,
+                )
+        except Exception:  # noqa: BLE001 — recording must not mask the error
+            logging.getLogger(__name__).exception("could not open a session to record")
+        logging.getLogger(__name__).exception("unhandled error on %s", request.url.path)
+        return JSONResponse(status_code=500, content={"detail": "server_error"})
+
     app.include_router(admin_users_router.router)
     app.include_router(auth_router.router)
     app.include_router(board_items_router.router)
@@ -60,6 +90,7 @@ def create_app() -> FastAPI:
     app.include_router(kb_documents_router.router)
     app.include_router(municipalities_router.router)
     app.include_router(stats_router.router)
+    app.include_router(system_errors_router.router)
     app.include_router(users_router.router)
 
     @app.get("/health")

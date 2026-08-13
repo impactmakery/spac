@@ -71,3 +71,22 @@ describe("navItems", () => {
     expect(hrefs).toContain("/knowledge");
   });
 });
+
+describe("the errors page", () => {
+  it("is offered to the system admin", () => {
+    const hrefs = navItems("system_admin", {
+      hasMunicipality: false,
+      departments: [],
+    }).map((i) => i.href);
+    expect(hrefs).toContain("/system/errors");
+  });
+
+  it("is offered to nobody else — tracebacks span every municipality", () => {
+    for (const role of ["municipality_admin", "department_user"] as const) {
+      const hrefs = navItems(role, { hasMunicipality: true, departments: [dept] }).map(
+        (i) => i.href,
+      );
+      expect(hrefs, role).not.toContain("/system/errors");
+    }
+  });
+});

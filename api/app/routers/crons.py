@@ -25,6 +25,7 @@ from app.models import (
     User,
 )
 from app.services.digest import send_weekly_digest
+from app.services.error_log import prune_errors
 from app.services.metrics import TZ, rollup_day
 from app.services.storage import get_storage
 
@@ -101,7 +102,8 @@ def weekly_digest(force: bool = False, db: Session = Depends(get_db)) -> dict:
 @router.post("/archive-purge", dependencies=[Depends(require_cron_secret)])
 def archive_purge(db: Session = Depends(get_db)) -> dict:
     """Permanently delete departments archived more than 90 days ago, plus the
-    90-day retention sweeps for chat history and retrieval debug rows."""
+    90-day retention sweeps for chat history, retrieval debug rows and the
+    recorded server errors."""
     today = datetime.now(TZ).date()
     run = _claim(db, "archive-purge", today.isoformat())
     if run is None:
@@ -164,11 +166,16 @@ def archive_purge(db: Session = Depends(get_db)) -> dict:
         )
     db.commit()
 
+    # The errors page keeps 90 days like everything else here; a table nobody
+    # trims is a table that eventually fills the disk.
+    errors_purged = prune_errors(db)
+
     counts = {
         "departments_purged": len(expired),
         "department_files_purged": purged_files,
         "message_debug_purged": debug_deleted or 0,
         "conversations_purged": len(stale_conversations),
+        "errors_purged": errors_purged,
     }
     _finish(db, run, counts)
     return counts

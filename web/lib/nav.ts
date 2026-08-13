@@ -27,7 +27,8 @@ export interface NavItem {
     | "stats"
     | "municipalities"
     | "kb-admin"
-    | "categories";
+    | "categories"
+    | "errors";
 }
 
 /** Sidebar links per role — scope appendix "App shell & navbar (per role)". */
@@ -73,6 +74,7 @@ export function navItems(
       { key: "systemCategories", href: "/system/categories", icon: "categories" },
       { key: "systemUsers", href: "/system/users", icon: "users" },
       { key: "systemStats", href: "/system/stats", icon: "stats" },
+      { key: "systemErrors", href: "/system/errors", icon: "errors" },
     );
   }
   return items;

@@ -643,6 +643,40 @@ class CronRun(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
+class ErrorLog(Base):
+    """Unhandled server errors, so they outlive the container that produced them.
+
+    Railway keeps logs for seven days and only a system admin can reach them.
+    A failure a municipality reports on Monday about something that happened on
+    a Friday two weeks ago was, until this table, simply unknowable.
+
+    Deliberately narrow: the path, the kind of error, its message and a
+    truncated traceback. Never the request body or query values — those carry
+    the very municipal content the platform exists to keep separated, and an
+    error page is not the place to pool it.
+    """
+
+    __tablename__ = "error_log"
+    __table_args__ = (
+        Index("ix_error_log_occurred", "occurred_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    method: Mapped[str] = mapped_column(Text, nullable=False)
+    path: Mapped[str] = mapped_column(Text, nullable=False)
+    status_code: Mapped[int] = mapped_column(Integer, nullable=False)
+    error_type: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    traceback: Mapped[str | None] = mapped_column(Text)
+    # Who hit it, for reproducing — not for blame, and null when signed out.
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+
 class AuditLog(Base):
     """Append-only. No code path may UPDATE or DELETE rows in this table."""
 

@@ -14,6 +14,7 @@ from app.models.base import (
     DepartmentFile,
     DepartmentPost,
     DepartmentPostComment,
+    ErrorLog,
     GraphEntity,
     GraphMention,
     GraphRelation,
@@ -33,6 +34,7 @@ from app.models.base import (
 __all__ = [
     "EMBEDDING_DIM",
     "AuditLog",
+    "ErrorLog",
     "BoardComment",
     "BoardCommentReaction",
     "BoardItem",

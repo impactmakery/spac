@@ -128,6 +128,7 @@ def db(engine: Engine) -> Iterator[Session]:
 
 @pytest.fixture()
 def client(engine: Engine) -> Iterator[TestClient]:
+    from app.core import db as db_module
     from app.core.db import get_db
     from app.main import create_app
 
@@ -138,6 +139,17 @@ def client(engine: Engine) -> Iterator[TestClient]:
             yield session
 
     app.dependency_overrides[get_db] = override
-    with TestClient(app) as c:
-        yield c
+
+    # A dependency override does not reach the code that opens its own session
+    # — the unhandled-error handler, which cannot use the request's session
+    # because that one is inside a failed transaction. Left alone it would
+    # write into whatever DATABASE_URL names, which in a test run is a
+    # developer's own database.
+    previous = db_module._session_factory
+    db_module._session_factory = sessionmaker(bind=engine)
+    try:
+        with TestClient(app) as c:
+            yield c
+    finally:
+        db_module._session_factory = previous
 

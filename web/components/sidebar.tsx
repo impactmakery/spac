@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  AlertTriangle,
   BarChart3,
   Building2,
   FolderKanban,
@@ -36,6 +37,7 @@ const ICONS = {
   municipalities: Landmark,
   "kb-admin": FileStack,
   categories: Tags,
+  errors: AlertTriangle,
 } as const;
 
 function NavLinks({ items, onNavigate }: { items: NavItem[]; onNavigate?: () => void }) {

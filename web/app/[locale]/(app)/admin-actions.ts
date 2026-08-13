@@ -137,3 +137,11 @@ export async function promoteUser(userId: string) {
 export async function demoteUser(userId: string) {
   return call(`/api/admin/users/${userId}/demote`, { method: "POST" });
 }
+
+// --- system admin: errors ---
+
+export async function retryFailedDocument(docId: string) {
+  return call<{ requeued: number }>(`/api/system/errors/documents/${docId}/retry`, {
+    method: "POST",
+  });
+}

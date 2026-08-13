@@ -90,7 +90,8 @@
     "systemUsers": "All Users",
     "systemStats": "Usage",
     "signOut": "Sign out",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "systemErrors": "Errors"
   },
   "stats": {
     "title": "Usage",
@@ -123,7 +124,9 @@
     "comparing": "Compare by",
     "comparingHelp": "{metric}, per {grouping}, over the last {days} days.",
     "activityMix": "What the activity is made of",
-    "activityMixHelp": "Questions, items and files per row, over the last {days} days."
+    "activityMixHelp": "Questions, items and files per row, over the last {days} days.",
+    "activeUsersHint": "signed in, asked, posted or commented",
+    "chatMessagesHint": "one per question, not per reply"
   },
   "chat": {
     "title": "Tomorrow Agent",
@@ -426,5 +429,21 @@
     "passwordChanged": "Password changed",
     "wrongPassword": "Current password is incorrect",
     "saved": "Saved"
+  },
+  "systemErrors": {
+    "title": "Errors",
+    "subtitle": "Everything the platform could not do, and when.",
+    "allClear": "Nothing is broken",
+    "allClearBody": "No server errors, no document that failed to be read, no scheduled job that did not finish.",
+    "documents": "{count, plural, =1 {One document could not be read} other {# documents could not be read}}",
+    "documentsHelp": "These were uploaded but never indexed, so the assistant cannot answer from them. Usually the file itself is the problem — a scan with no text, or a file saved in an old format. Try again first; if it fails twice, ask for the file to be re-saved.",
+    "retry": "Try again",
+    "retryQueued": "Queued — it will be read again within a minute.",
+    "retryFailed": "Could not queue it. Try again in a moment.",
+    "server": "{count, plural, =1 {One server error} other {# server errors}}",
+    "serverHelp": "A request that failed outright. Whoever made it saw an error message. Open one for the full trace — that is what a developer needs.",
+    "jobs": "{count, plural, =1 {One scheduled job failed} other {# scheduled jobs failed}}",
+    "jobsHelp": "Usually the weekly digest, which means those emails did not go out. It runs again on its next schedule.",
+    "attempts": "{count, plural, other {tried # times}}"
   }
 }

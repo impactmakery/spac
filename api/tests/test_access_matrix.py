@@ -56,6 +56,11 @@ CASES = [
     ("PATCH", "/api/categories/{cat}", {"name_he": "x"},
      {"a1@x.org": 404, "u1@x.org": 404}),
     ("DELETE", "/api/categories/{cat}", None, {"a1@x.org": 404, "u1@x.org": 404}),
+    # Recorded errors carry tracebacks and paths from every municipality at
+    # once, so this stays with the one role that already sees all of them.
+    ("GET", "/api/system/errors", None, {"a1@x.org": 404, "u1@x.org": 404}),
+    ("POST", "/api/system/errors/documents/{cat}/retry", None,
+     {"a1@x.org": 404, "u1@x.org": 404}),
     # admin-only surfaces
     ("GET", "/api/admin/users", None, {"u1@x.org": 404}),
     ("GET", "/api/departments", None, {"u1@x.org": 404}),
