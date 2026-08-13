@@ -13,6 +13,8 @@ import { useRouter } from "@/i18n/navigation";
 import type { KbDocRow } from "@/lib/kb-types";
 import { type Library, libraryTabs, type MunicipalityRef, sameLibrary } from "@/lib/libraries";
 import type { Role } from "@/lib/roles";
+import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { formatBytes } from "@/lib/format";
 
 // Often enough to feel live, rarely enough that a library left open overnight
 // is not making a request every second.
@@ -107,6 +109,17 @@ export function KnowledgeClient({
         failed += 1;
         continue;
       }
+      // Refused here rather than after the wait: the file cannot reach us at
+      // this size, and finding that out at the end of a queue of twenty is
+      // the worst moment to learn it.
+      if (tooBigToSend(file)) {
+        toast(
+          `${file.name}: ${t("tooBigToSend", { size: formatBytes(file.size) })}`,
+          "error",
+        );
+        failed += 1;
+        continue;
+      }
       const fd = new FormData();
       fd.append("file", file);
       if (active.kind === "municipality") {
@@ -118,19 +131,20 @@ export function KnowledgeClient({
       // for the transport. Uncaught, that ended the whole loop with no toast,
       // no refresh, and the progress panel left on screen: the upload looked
       // like it had simply vanished, which is exactly what people reported.
-      try {
-        const res = await uploadKbDocument(fd);
-        if ("error" in res) {
-          const msg =
-            res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error;
-          toast(`${file.name}: ${msg}`, "error");
-          failed += 1;
-        } else {
-          added += 1;
-        }
-      } catch {
-        toast(`${file.name}: ${t("uploadFailed")}`, "error");
+      const res = await attempt(() => uploadKbDocument(fd));
+      if ("error" in res) {
+        const msg =
+          res.error === TRANSPORT_FAILED
+            ? t("uploadFailed")
+            : res.status === 415
+              ? t("badType")
+              : res.status === 413
+                ? t("fileTooLarge")
+                : res.error;
+        toast(`${file.name}: ${msg}`, "error");
         failed += 1;
+      } else {
+        added += 1;
       }
     }
     setUpload(null);

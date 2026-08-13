@@ -1,13 +1,17 @@
 "use client";
 
+import { Loader2 } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { createCategory } from "@/app/[locale]/(app)/admin-actions";
 import { publishBoardItem } from "@/app/[locale]/(app)/board-actions";
 import { Dialog } from "@/components/dialog";
+import { useToast } from "@/components/toast";
 import { FileDrop } from "@/components/board/file-drop";
 import { Button, FieldError, Input, Label, Select, cn } from "@/components/ui";
 import type { BoardKind, CategoryRef } from "@/lib/board-types";
+import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
+import { formatBytes } from "@/lib/format";
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const MAX_PROMPT = 20000;
@@ -38,6 +42,7 @@ export function PublishDialog({
 }) {
   const t = useTranslations("board");
   const tc = useTranslations("common");
+  const toast = useToast();
   const locale = useLocale();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -108,6 +113,11 @@ export function PublishDialog({
       if (needsContent && !file) return setError(t("errContent"));
       // Any file type is accepted; only the size is the client's business.
       if (file && file.size > MAX_FILE_BYTES) return setError(t("errFileSize"));
+      if (file && tooBigToSend(file)) {
+        const message = t("errFileTooBigToSend", { size: formatBytes(file.size) });
+        toast(message, "error");
+        return setError(message);
+      }
     }
     if (mode === "prompt") {
       if (needsContent && !promptText.trim()) return setError(t("errContent"));
@@ -132,20 +142,30 @@ export function PublishDialog({
     if (mode === "prompt" && promptText.trim())
       fd.append("prompt_text", promptText.trim());
 
-    const res = await publishBoardItem(fd);
+    // A server action can fail before it runs — the platform rejects an
+    // oversized body with a 413 the action never sees, and the promise
+    // rejects. Without this the button stayed disabled for good and said
+    // nothing, which reads as "it is still uploading" forever.
+    const res = await attempt(() => publishBoardItem(fd));
     setBusy(false);
     if ("error" in res) {
-      setError(
-        res.status === 415
-          ? t("errFileType")
-          : res.status === 413
-            ? t("errFileSize")
-            : res.error === "link_must_be_https"
-              ? t("errLink")
-              : res.error === "event_date_required" || res.error === "invalid_event_date"
-                ? t("eventDateRequired")
-                : t("errContent"),
-      );
+      const message =
+        res.error === TRANSPORT_FAILED
+          ? file
+            ? t("errFileTooBigToSend", { size: formatBytes(file.size) })
+            : tc("somethingWentWrong")
+          : res.status === 415
+            ? t("errFileType")
+            : res.status === 413
+              ? t("errFileSize")
+              : res.error === "link_must_be_https"
+                ? t("errLink")
+                : res.error === "event_date_required" ||
+                    res.error === "invalid_event_date"
+                  ? t("eventDateRequired")
+                  : t("errContent");
+      toast(message, "error");
+      setError(message);
       return;
     }
     reset();
@@ -417,8 +437,11 @@ export function PublishDialog({
 
         <div className="space-y-3 md:col-span-2">
           <FieldError>{error}</FieldError>
+          {/* A file takes seconds to travel, and a button that only greys out
+              looks like nothing happened. */}
           <Button type="submit" disabled={busy} className="w-full">
-            {t("send")}
+            {busy && <Loader2 className="size-4 animate-spin" />}
+            {busy ? (mode === "file" && file ? t("uploading") : t("sending")) : t("send")}
           </Button>
         </div>
       </form>

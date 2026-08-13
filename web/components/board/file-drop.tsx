@@ -3,7 +3,7 @@
 import { Paperclip, UploadCloud, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
-import { cn } from "@/components/ui";
+import { Bidi, cn } from "@/components/ui";
 import { formatBytes } from "@/lib/format";
 
 /** Drop a file, or click to pick one.
@@ -40,7 +40,8 @@ export function FileDrop({
               {file.name}
             </span>
             <span className="block text-xs text-muted-foreground">
-              {formatBytes(file.size)}
+              {/* "6 MB" reads as "MB 6" in an RTL line without isolation. */}
+              <Bidi>{formatBytes(file.size)}</Bidi>
             </span>
           </span>
         </span>

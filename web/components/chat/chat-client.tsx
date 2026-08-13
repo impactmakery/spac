@@ -14,6 +14,7 @@ import { Link, useRouter } from "@/i18n/navigation";
 import type { ChatMessage, Citation, ConversationRow } from "@/lib/chat-types";
 import { useConfirm } from "@/components/confirm";
 import { AnswerText } from "@/components/chat/answer-text";
+import { attempt } from "@/lib/actions";
 
 interface Pending {
   content: string;
@@ -66,7 +67,9 @@ export function ChatClient({
 
     let targetId = conversationId;
     if (!targetId) {
-      const created = await createConversation();
+      // Outside the try that owns the finally below, so a rejection here would
+      // leave the composer disabled with the question already cleared.
+      const created = await attempt(() => createConversation());
       if ("error" in created || !created.data) {
         setError(t("errorSend"));
         setBusy(false);
@@ -135,7 +138,7 @@ export function ChatClient({
   }
 
   async function onNewChat() {
-    const created = await createConversation();
+    const created = await attempt(() => createConversation());
     if ("ok" in created && created.data) {
       router.push(`/chat/${created.data.id}`);
       router.refresh();

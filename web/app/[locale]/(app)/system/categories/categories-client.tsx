@@ -79,7 +79,11 @@ export function CategoriesClient({ rows }: { rows: CategoryRow[] }) {
     else if (dialog.kind === "rename")
       res = await renameCategory(dialog.row.id, nameHe, english, color);
     else if (dialog.kind === "merge") res = await mergeCategory(dialog.row.id, target);
-    else return;
+    else {
+      // Never leave the button disabled on a path that returns.
+      setBusy(false);
+      return;
+    }
     setBusy(false);
     if (res && "error" in res) {
       setError(res.error === "name_exists" ? t("nameExists") : res.error);

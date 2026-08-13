@@ -246,7 +246,12 @@
     "categoryExists": "That category already exists.",
     "whichMunicipality": "Municipality",
     "municipalityReadOnly": "This municipality's own board. You are reading it, not posting to it.",
-    "emptyBodyReadOnly": "Nothing has been posted to this board yet."
+    "emptyBodyReadOnly": "Nothing has been posted to this board yet.",
+    "allMunicipalities": "All municipalities",
+    "allMunicipalitiesTitle": "Every municipality board",
+    "sending": "Publishing…",
+    "uploading": "Uploading…",
+    "errFileTooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly."
   },
   "departmentArea": {
     "filesTab": "Files",
@@ -301,7 +306,8 @@
     "uploadingCount": "{done} of {total}",
     "uploadingFailed": "{count, plural, one {# file could not be uploaded} other {# files could not be uploaded}}",
     "indexingInProgress": "{count, plural, one {# document is still being read} other {# documents are still being read}} — this page updates itself.",
-    "uploadFailed": "could not be sent — try again, or upload it in a smaller file"
+    "uploadFailed": "could not be sent — try again, or upload it in a smaller file",
+    "tooBigToSend": "That file is {size} — too large to send from the browser. Files up to 4 MB work; for anything bigger, ask a system administrator to load it directly."
   },
   "municipalities": {
     "title": "Municipalities",

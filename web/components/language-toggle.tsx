@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { updateMe } from "@/app/[locale]/(app)/actions";
 import { usePathname, useRouter } from "@/i18n/navigation";
+import { attempt } from "@/lib/actions";
 
 export function LanguageToggle({ language }: { language: "he" | "en" }) {
   const router = useRouter();
@@ -14,7 +15,14 @@ export function LanguageToggle({ language }: { language: "he" | "en" }) {
 
   async function toggle() {
     setBusy(true);
-    await updateMe({ language: other });
+    // The button is deliberately left disabled on the way out — the navigation
+    // below replaces this page. On failure it has to come back, or the only
+    // way to change language again is a reload.
+    const res = await attempt(() => updateMe({ language: other }));
+    if ("error" in res) {
+      setBusy(false);
+      return;
+    }
     await update({ user: { language: other } });
     router.replace(pathname, { locale: other });
     router.refresh();

@@ -20,6 +20,7 @@ import type { DeptFile, DeptPost } from "@/lib/board-types";
 import { formatBytes } from "@/lib/format";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
+import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 
 export function DepartmentClient({
   deptId,
@@ -53,13 +54,25 @@ export function DepartmentClient({
     const file = list[0];
     setError(null);
     if (file.size > 25 * 1024 * 1024) return setError(tk("fileTooLarge"));
+    if (tooBigToSend(file)) {
+      const message = tk("tooBigToSend", { size: formatBytes(file.size) });
+      toast(message, "error");
+      return setError(message);
+    }
     setBusy(true);
     const fd = new FormData();
     fd.append("file", file);
-    const res = await uploadDepartmentFile(deptId, fd);
+    const res = await attempt(() => uploadDepartmentFile(deptId, fd));
     setBusy(false);
     if ("error" in res) {
-      setError(res.status === 415 ? tk("badType") : res.error);
+      const message =
+        res.error === TRANSPORT_FAILED
+          ? tk("tooBigToSend", { size: formatBytes(file.size) })
+          : res.status === 415
+            ? tk("badType")
+            : res.error;
+      toast(message, "error");
+      setError(message);
       return;
     }
     router.refresh();

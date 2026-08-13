@@ -58,7 +58,11 @@ export function DepartmentsClient({
         return;
       }
       res = await archiveDepartment(dialog.row.id);
-    } else return;
+    } else {
+      // Never leave the button disabled on a path that returns.
+      setBusy(false);
+      return;
+    }
     setBusy(false);
     if (res && "error" in res) {
       setError(res.error === "name_exists" ? t("nameExists") : res.error);

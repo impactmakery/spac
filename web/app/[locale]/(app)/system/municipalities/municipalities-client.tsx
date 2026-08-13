@@ -55,7 +55,11 @@ export function MunicipalitiesClient({ rows }: { rows: MunicipalityRow[] }) {
         role: "municipality_admin",
         municipality_id: dialog.row.id,
       });
-    else return;
+    else {
+      // Never leave the button disabled on a path that returns.
+      setBusy(false);
+      return;
+    }
     setBusy(false);
     if (res && "error" in res) {
       setError(

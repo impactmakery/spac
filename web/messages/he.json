@@ -246,7 +246,12 @@
     "categoryExists": "הקטגוריה הזו כבר קיימת.",
     "whichMunicipality": "רשות",
     "municipalityReadOnly": "הלוח הפנימי של הרשות. אתם קוראים אותו, לא מפרסמים בו.",
-    "emptyBodyReadOnly": "עדיין לא פורסם דבר בלוח הזה."
+    "emptyBodyReadOnly": "עדיין לא פורסם דבר בלוח הזה.",
+    "allMunicipalities": "כל הרשויות",
+    "allMunicipalitiesTitle": "הלוחות של כל הרשויות",
+    "sending": "מפרסמים…",
+    "uploading": "מעלים את הקובץ…",
+    "errFileTooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות."
   },
   "departmentArea": {
     "filesTab": "קבצים",
@@ -301,7 +306,8 @@
     "uploadingCount": "{done} מתוך {total}",
     "uploadingFailed": "{count, plural, one {קובץ אחד לא הועלה} other {# קבצים לא הועלו}}",
     "indexingInProgress": "{count, plural, one {מסמך אחד עדיין נקרא} other {# מסמכים עדיין נקראים}} — הדף מתעדכן מעצמו.",
-    "uploadFailed": "לא ניתן היה לשלוח — נסו שוב, או העלו קובץ קטן יותר"
+    "uploadFailed": "לא ניתן היה לשלוח — נסו שוב, או העלו קובץ קטן יותר",
+    "tooBigToSend": "הקובץ במשקל {size} — גדול מדי לשליחה מהדפדפן. עד 4 MB עובד; לקובץ גדול יותר, בקשו ממנהל המערכת לטעון אותו ישירות."
   },
   "municipalities": {
     "title": "ניהול רשויות",

@@ -15,6 +15,7 @@ import { formatBytes } from "@/lib/format";
 import type { KbDocDetail, TextPreview } from "@/lib/kb-types";
 import { useConfirm } from "@/components/confirm";
 import { useToast } from "@/components/toast";
+import { attempt, tooBigToSend, TRANSPORT_FAILED } from "@/lib/actions";
 
 export function DocClient({
   doc,
@@ -45,14 +46,29 @@ export function DocClient({
 
   async function onReplace(files: FileList | null) {
     if (!files?.length) return;
-    setBusy(true);
+    const file = files[0];
     setError(null);
+    if (tooBigToSend(file)) {
+      const message = t("tooBigToSend", { size: formatBytes(file.size) });
+      toast(message, "error");
+      return setError(message);
+    }
+    setBusy(true);
     const fd = new FormData();
-    fd.append("file", files[0]);
-    const res = await replaceKbDocument(doc.id, fd);
+    fd.append("file", file);
+    const res = await attempt(() => replaceKbDocument(doc.id, fd));
     setBusy(false);
     if ("error" in res) {
-      setError(res.status === 415 ? t("badType") : res.status === 413 ? t("fileTooLarge") : res.error);
+      const message =
+        res.error === TRANSPORT_FAILED
+          ? t("tooBigToSend", { size: formatBytes(file.size) })
+          : res.status === 415
+            ? t("badType")
+            : res.status === 413
+              ? t("fileTooLarge")
+              : res.error;
+      toast(message, "error");
+      setError(message);
       return;
     }
     router.refresh();
