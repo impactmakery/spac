@@ -2,11 +2,12 @@
 
 import { BarChart3, Download, FileText, MessageCircle, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { BarChart } from "@/components/charts/bar-chart";
 import { LineChart } from "@/components/charts/line-chart";
 import { StatTile } from "@/components/charts/stat-tile";
 import { PageHeader } from "@/components/page-header";
-import { Button, Card, cn } from "@/components/ui";
+import { Button, Card, Select, cn } from "@/components/ui";
 import { useRouter } from "@/i18n/navigation";
 import {
   toCsv,
@@ -17,6 +18,26 @@ import {
 
 const RANGES = [7, 30, 90] as const;
 
+/**
+ * What the comparison bars measure.
+ *
+ * It used to be chat_messages + board_items with nothing on screen saying so,
+ * which is two problems at once: the reader could not know what the number
+ * meant, and the number itself added two unlike things — ten questions and no
+ * posts scored the same as ten posts and no questions.
+ *
+ * Every one of these is already a figure shown in the tiles above, so a bar
+ * can now be checked against a total the reader has just read.
+ */
+const COMPARABLE = [
+  { key: "chat_messages", label: "chatMessages" },
+  { key: "active_users", label: "activeUsers" },
+  { key: "board_items", label: "boardItems" },
+  { key: "files_uploaded", label: "filesUploaded" },
+] as const;
+
+type Comparable = (typeof COMPARABLE)[number]["key"];
+
 export function StatsDashboard({
   scope,
   data,
@@ -26,6 +47,7 @@ export function StatsDashboard({
 }) {
   const t = useTranslations("stats");
   const router = useRouter();
+  const [compareBy, setCompareBy] = useState<Comparable>("chat_messages");
   const basePath = scope === "platform" ? "/system/stats" : "/admin/stats";
   const unanswered =
     "unanswered_questions" in data ? data.unanswered_questions : null;
@@ -165,17 +187,41 @@ export function StatsDashboard({
           </div>
 
           <Card className="mb-6 p-5">
-            <h2 className="mb-4 text-sm font-semibold text-foreground">
-              {scope === "platform" ? t("byMunicipality") : t("byDepartment")}
-            </h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-foreground">
+                {scope === "platform" ? t("byMunicipality") : t("byDepartment")}
+              </h2>
+              {/* Naming the measure is the point: a bar chart of an unlabelled
+                  number tells the reader nothing they can act on. */}
+              <Select
+                aria-label={t("comparing")}
+                value={compareBy}
+                onChange={(e) => setCompareBy(e.target.value as Comparable)}
+              >
+                {COMPARABLE.map((m) => (
+                  <option key={m.key} value={m.key}>
+                    {t(m.label)}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <BarChart
-              label={scope === "platform" ? t("byMunicipality") : t("byDepartment")}
+              label={`${scope === "platform" ? t("byMunicipality") : t("byDepartment")} — ${t(
+                COMPARABLE.find((m) => m.key === compareBy)!.label,
+              )}`}
               data={data.breakdown.map((b) => ({
                 label: b.name,
-                value: b.kpis.chat_messages + b.kpis.board_items,
+                value: b.kpis[compareBy],
               }))}
               color="var(--chart-1)"
             />
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t("comparingHelp", {
+                metric: t(COMPARABLE.find((m) => m.key === compareBy)!.label),
+                grouping: scope === "platform" ? t("municipality") : t("department"),
+                days: data.range_days,
+              })}
+            </p>
           </Card>
 
           {/* the table view is also the accessible fallback for the charts */}

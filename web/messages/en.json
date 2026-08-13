@@ -119,7 +119,9 @@
     "noUnanswered": "No unanswered questions in this range",
     "empty": "No data yet",
     "emptyBody": "Usage indicators appear here once people start using the platform.",
-    "tableView": "Data table"
+    "tableView": "Data table",
+    "comparing": "Compare by",
+    "comparingHelp": "{metric}, per {grouping}, over the last {days} days."
   },
   "chat": {
     "title": "Tomorrow Agent",
